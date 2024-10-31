@@ -15,7 +15,7 @@ impl<Payload: Eq + Hash + Clone + Debug + Send> NoEvict<Payload> {
 }
 
 impl<Payload: Eq + Hash + Clone + Debug + Send> InstanceCachePolicy<Payload> for NoEvict<Payload> {
-    fn get(&mut self, key: Payload) -> Option<Payload> {
+    fn get(&mut self, key: Payload, last_mem_use: f32) -> Option<Payload> {
         Some(key)
     }
 

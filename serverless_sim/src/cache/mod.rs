@@ -1,8 +1,12 @@
+//pub mod duo;
+pub mod contemp;
 pub mod fifo;
 pub mod lru;
 pub mod no_evict;
 
 use std::{cell::RefCell, cmp::Eq, fmt::Debug, hash::Hash, rc::Rc};
+
+use crate::sim_env::SimEnv;
 
 // 双向链表节点
 pub struct ListNode<Payload> {
@@ -25,7 +29,7 @@ impl<Payload> ListNode<Payload> {
     }
 }
 pub trait InstanceCachePolicy<Payload: Eq + Hash + Clone + Debug>: Send {
-    fn get(&mut self, key: Payload) -> Option<Payload>;
+    fn get(&mut self, key: Payload, last_mem_use: f32) -> Option<Payload>;
 
     /// can_be_evict: check if the payload is pinned
     /// first return: return Some(payload) if one is evcited

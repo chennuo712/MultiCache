@@ -13,7 +13,7 @@ pub struct LRUCache<Payload: Eq + Hash + Clone + Debug> {
 }
 
 impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for LRUCache<Payload> {
-    fn get(&mut self, key: Payload) -> Option<Payload> {
+    fn get(&mut self, key: Payload, last_mem_use: f32) -> Option<Payload> {
         if let Some(rc_node) = self.cache.get(&key) {
             let node: Rc<RefCell<ListNode<Payload>>> = rc_node.clone();
             //let value = Some(node.borrow().value.clone());
@@ -150,18 +150,18 @@ impl<Payload: Eq + Hash + Clone + Debug> LRUCache<Payload> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     // 测试LRU缓存的基本插入和获取功能
     #[test]
     fn test_lru_cache_basic_operations() {
         let mut cache = LRUCache::new(3);
+        let mut last_mem_use = 10.0;
         let keys = vec![1, 2, 3];
         for key in &keys {
             assert_eq!(cache.put(key.clone(), Box::new(|_| true)), (None, true));
         }
         for key in &keys {
-            assert_eq!(cache.get(key.clone()), Some(key.clone()));
+            assert_eq!(cache.get(key.clone(), last_mem_use), Some(key.clone()));
         }
     }
 
@@ -197,12 +197,13 @@ mod tests {
     #[test]
     fn test_lru_cache_order() {
         let mut cache = LRUCache::new(3);
+        let mut last_mem_use = 10.0;
         let keys = vec![1, 2, 3];
         for key in &keys {
             cache.put(key.clone(), Box::new(|_| true)).0;
         }
         // 访问中间的元素，以改变其位置
-        cache.get(2);
+        cache.get(2, last_mem_use);
         cache.cmp_list(vec![2, 3, 1]);
     }
 
