@@ -23,11 +23,6 @@ impl SimEnv {
         hook_frame_begin: &mut Option<Box<dyn FnMut(&SimEnv) + 'static>>,
         hook_req_gen: &mut Option<Box<dyn FnMut(&SimEnv) + 'static>>,
     ) -> bool {
-        // 新增：每10帧执行一次预取
-        if self.current_frame() % 20 == 0 {
-            self.check_if_prefetch();
-        }
-
         // 进行帧开始时处理
         self.on_frame_begin();
         if let Some(f) = hook_frame_begin.as_mut() {
