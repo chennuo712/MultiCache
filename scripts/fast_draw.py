@@ -8,7 +8,7 @@ from records_read import FlattenConfig
 import json
 
 
-AVG_CNT=2
+AVG_CNT=1
 
 
 # #gen_tmp_yaml
@@ -51,7 +51,14 @@ filter:
 targets_alias:
 {{targets_alias}}
 
-## group on x axis:
+# ## group on x axis:
+# group: 
+#   by: request_freq
+#   types: [low,middle,high]
+#   alias: ''
+#   type_alias: ['low','middle','high']
+
+# group on x axis:
 group: 
   by: cold_start
   types: [high]
@@ -62,10 +69,12 @@ group:
 values:
 # - {alias: Throughput, trans: throughput}
 - {alias: Cost, trans: cost_per_req}
-- {alias: Latency(ms), trans: '[waitsche_time_per_req,coldstart_time_per_req,datarecv_time_per_req,exe_time_per_req]'} # convert 10ms to ms
-- {alias: Quality-Price Ratio, trans: 'rps/cost_per_req/time_per_req if cost_per_req>0 and time_per_req>0  else 0'}
-- {alias: Throuphput, trans: rps*1000}
-- {alias: Avg Container Count, trans: fn_container_cnt}
+- {alias: Latency, trans: '[waitsche_time_per_req,coldstart_time_per_req,datarecv_time_per_req,exe_time_per_req]'} # convert 10ms to ms
+- {alias: Cost Effectiveness, trans: 'rps/cost_per_req/time_per_req if cost_per_req>0 and time_per_req>0  else 0'}
+- {alias: Throuphput, trans: rps}
+- {alias: Container Count, trans: fn_container_cnt}
+- {alias: Cold Start Latency, trans: coldstart_time_per_req}
+- {alias: Cache Hit Ratio, trans: cache_hit_ratio_per_node}
 """
 
 TMP=TMP.replace("{{targets_alias}}",targets_alias)

@@ -1,23 +1,33 @@
-use thread_priority::{ set_current_thread_priority, ThreadPriority };
+#[cfg(target_os = "windows")]
+use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 use crate::{
     actions::ESActionWrapper,
     mechanism::SimEnvObserve,
-    mechanism_thread::{ MechScheduleOnce, MechScheduleOnceRes },
+    mechanism_thread::{MechScheduleOnce, MechScheduleOnceRes},
     node::EnvNodeExt,
     rl_target::RL_TARGET,
     sim_env::SimEnv,
     with_env_sub::WithEnvHelp,
 };
 
-use std::{ sync::mpsc::{ self, Receiver }, thread::sleep, time::Duration };
+use std::{
+    sync::mpsc::{self, Receiver},
+    thread::sleep,
+    time::Duration,
+};
 
 impl SimEnv {
     fn one_frame(
         &mut self,
         hook_frame_begin: &mut Option<Box<dyn FnMut(&SimEnv) + 'static>>,
-        hook_req_gen: &mut Option<Box<dyn FnMut(&SimEnv) + 'static>>
+        hook_req_gen: &mut Option<Box<dyn FnMut(&SimEnv) + 'static>>,
     ) -> bool {
+        // 新增：每10帧执行一次预取
+        if self.current_frame() % 20 == 0 {
+            self.check_if_prefetch();
+        }
+
         // 进行帧开始时处理
         self.on_frame_begin();
         if let Some(f) = hook_frame_begin.as_mut() {
@@ -55,12 +65,14 @@ impl SimEnv {
         mut hook_frame_begin: Option<Box<dyn FnMut(&SimEnv) + 'static>>,
         mut hook_req_gen: Option<Box<dyn FnMut(&SimEnv) + 'static>>,
         mut hook_algo_begin: Option<Box<dyn FnMut(&SimEnv) + 'static>>,
-        mut hook_algo_end: Option<Box<dyn FnMut(&SimEnv) + 'static>>
+        mut hook_algo_end: Option<Box<dyn FnMut(&SimEnv) + 'static>>,
     ) -> (f32, String) {
         // 尝试设置当前线程的优先级
+        #[cfg(target_os = "windows")]
         if let Err(e) = set_current_thread_priority(ThreadPriority::Min) {
             eprintln!("设置线程优先级失败: {:?}", e);
         }
+
         self.avoid_gc();
         let mut master_mech_resp_rx: Option<Receiver<MechScheduleOnceRes>> = None;
         let mut frame_when_master_mech_begin = 0;
@@ -83,7 +95,11 @@ impl SimEnv {
                         res
                     };
                     match res {
-                        MechScheduleOnceRes::Cmds { sche_cmds, scale_up_cmds, scale_down_cmds } => {
+                        MechScheduleOnceRes::Cmds {
+                            sche_cmds,
+                            scale_up_cmds,
+                            scale_down_cmds,
+                        } => {
                             // 2. handle_master's commands
                             {
                                 // FIXME: Should transfer the cmds for a while.
@@ -93,12 +109,13 @@ impl SimEnv {
                                     self.schedule_reqfn_on_node(
                                         &mut self.request_mut(sche.reqid),
                                         sche.fnid,
-                                        sche.nid
+                                        sche.nid,
                                     );
                                 }
                                 for down in scale_down_cmds.iter() {
                                     //更新cache
-                                    self.node_mut(down.nid).try_unload_container(down.fnid, self);
+                                    self.node_mut(down.nid)
+                                        .try_unload_container(down.fnid, self, true);
                                 }
                                 for up in scale_up_cmds.iter() {
                                     self.node_mut(up.nid).try_load_container(up.fnid, self);
@@ -109,12 +126,13 @@ impl SimEnv {
                             self.schedule_reqfn_on_node(
                                 &mut self.request_mut(sche.reqid),
                                 sche.fnid,
-                                sche.nid
+                                sche.nid,
                             );
                         }
                         MechScheduleOnceRes::ScaleDownCmd(down) => {
                             //更新cache
-                            self.node_mut(down.nid).try_unload_container(down.fnid, self);
+                            self.node_mut(down.nid)
+                                .try_unload_container(down.fnid, self, true);
                         }
                         MechScheduleOnceRes::ScaleUpCmd(up) => {
                             self.node_mut(up.nid).try_load_container(up.fnid, self);
@@ -170,6 +188,7 @@ impl SimEnv {
                 hook_algo_begin.as_mut().map(|f| f(self));
             }
             if !self.one_frame(&mut hook_frame_begin, &mut hook_req_gen) {
+                log::info!("simulation end");
                 break;
             }
 

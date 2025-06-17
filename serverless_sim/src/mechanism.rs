@@ -100,7 +100,8 @@ pub const SCHE_NAMES: [&'static str; 12] = [
     // "load_least",
     // "random",
 ];
-pub const SCALE_NUM_NAMES: [&'static str; 7] = [
+
+pub const SCALE_NUM_NAMES: [&'static str; 8] = [
     "no",
     "hpa",
     "lass",
@@ -108,12 +109,41 @@ pub const SCALE_NUM_NAMES: [&'static str; 7] = [
     "full_placement",
     "rela",
     "ensure_scaler",
+    "ensure_scaler",
 ];
 pub const SCALE_DOWN_EXEC_NAMES: [&'static str; 1] = ["default"];
 pub const SCALE_UP_EXEC_NAMES: [&'static str; 2] = ["least_task", "no"];
 pub const MECH_NAMES: [&'static str; 3] = ["no_scale", "scale_sche_separated", "scale_sche_joint"];
 pub const FILTER_NAMES: [&'static str; 1] = ["careful_down"];
-pub const INSTANCE_LIVE_NAMES: [&'static str; 4] = ["no_evict", "lru", "fifo", "contemp"];
+pub const INSTANCE_LIVE_NAMES: [&'static str; 27] = [
+    "no_evict",
+    "lru",
+    "fifo",
+    "contemp",
+    "no_freq",
+    "no_mem",
+    "no_cpu",
+    "no_cst",
+    "no_callcount",
+    "no_attenuation",
+    "ttl",
+    "ttl_new",
+    "duo",
+    "cfc",
+    "faascache",
+    "arc",
+    "contemp_01",
+    "contemp_1",
+    "contemp_2",
+    "contemp_3",
+    "contemp_4",
+    "contemp_5",
+    "contemp_6",
+    "contemp_7",
+    "contemp_8",
+    "contemp_9",
+    "contemp_99",
+];
 
 pub trait Mechanism: Send {
     fn step(
@@ -467,6 +497,11 @@ impl MechanismImpl {
             // let cur = env.fn_container_cnt(func.fn_id);
             // let tar = self.scale_num(func.fn_id);
 
+            // log::info!(
+            //     "scale fn{} cost {}",
+            //     func.fn_id,
+            //     util::now_ms() - *self.step_begin.borrow()
+            // );
             // log::info!(
             //     "scale fn{} cost {}",
             //     func.fn_id,

@@ -23,12 +23,14 @@ torchvision==0.15.2
 tensorboard==2.13.0
 
 # Utilities
-numpy==1.24.3
+numpy>=1.21.0
 opencv-python==4.8.0.74
 python-snappy==0.6.1
 
 # Coding styles and others
 pre-commit==3.3.2
 black==23.7.0
+
+matplotlib>=3.4.0
 
 python-snappy

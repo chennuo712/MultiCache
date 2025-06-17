@@ -1,11 +1,16 @@
-use std::{ cell::{ Ref, RefMut }, collections::{ BTreeMap, HashMap, HashSet } };
+use std::{
+    cell::{Ref, RefMut},
+    collections::{BTreeMap, HashMap, HashSet},
+    thread::sleep,
+    time::Duration,
+};
 
 use daggy::petgraph::visit::Topo;
 
-use rand_distr::{ Distribution, Normal };
+use rand_distr::{Distribution, Normal};
 
 use crate::{
-    fn_dag::{ DagId, EnvFnExt, FnId },
+    fn_dag::{DagId, EnvFnExt, FnId},
     node::NodeId,
     sim_env::SimEnv,
     with_env_sub::WithEnvCore,
@@ -93,11 +98,15 @@ impl Request {
         let mut endtime_fn = BTreeMap::new();
         while let Some(fngi) = walker.next(&dag.dag_inner) {
             let fnid = dag.dag_inner[fngi];
-            endtime_fn.insert(self.fn_metric.get(&fnid).unwrap().fn_done_time.unwrap(), (
-                self.fn_metric.get(&fnid).unwrap().ready_sche_time.unwrap(),
-                fnid,
-            ));
+            endtime_fn.insert(
+                self.fn_metric.get(&fnid).unwrap().fn_done_time.unwrap(),
+                (
+                    self.fn_metric.get(&fnid).unwrap().ready_sche_time.unwrap(),
+                    fnid,
+                ),
+            );
         }
+        // log::info!("endtime_fn: {:?}", endtime_fn);
         let first = endtime_fn.iter().next().unwrap().1.clone().1;
         let mut cur: (usize, FnId) = endtime_fn.iter().next_back().unwrap().1.clone();
         let mut recur_path = vec![cur.1];
@@ -106,7 +115,12 @@ impl Request {
                 break;
             }
             // use cur fn's begin time to get prev fn's end time
-            let prev: (usize, FnId) = endtime_fn.get(&cur.0).unwrap().clone();
+            let prev: (usize, FnId) = endtime_fn
+                .get(&cur.0)
+                .unwrap_or_else(|| {
+                    panic!("can't find fn end at {}", cur.0);
+                })
+                .clone();
             recur_path.push(prev.1);
             if prev.1 == first {
                 break;
@@ -145,13 +159,12 @@ impl Request {
             // assert!(begin);
             let sche_time = metric.sche_time.unwrap();
             let ready_sche_time = metric.ready_sche_time.unwrap();
-            let cold_start_done_time = if
-                let Some(cold_start_done_time) = metric.cold_start_done_time
-            {
-                cold_start_done_time.max(sche_time.max(ready_sche_time))
-            } else {
-                sche_time.max(ready_sche_time)
-            };
+            let cold_start_done_time =
+                if let Some(cold_start_done_time) = metric.cold_start_done_time {
+                    cold_start_done_time.max(sche_time.max(ready_sche_time))
+                } else {
+                    sche_time.max(ready_sche_time)
+                };
             let data_done_time = if let Some(data_recv_done_time) = metric.data_recv_done_time {
                 data_recv_done_time
             } else {
@@ -230,20 +243,22 @@ impl Request {
                 let mut walker = dag.new_dag_walker();
                 let mut map = HashMap::new();
                 while let Some(fngi) = walker.next(&dag.dag_inner) {
-                    let ready_sche_time = if
-                        env.func(dag.dag_inner[fngi]).parent_fns(env).is_empty()
-                    {
-                        Some(begin_frame)
-                    } else {
-                        None
-                    };
-                    map.insert(dag.dag_inner[fngi], ReqFnMetric {
-                        ready_sche_time,
-                        sche_time: None,
-                        data_recv_done_time: None,
-                        cold_start_done_time: None,
-                        fn_done_time: None,
-                    });
+                    let ready_sche_time =
+                        if env.func(dag.dag_inner[fngi]).parent_fns(env).is_empty() {
+                            Some(begin_frame)
+                        } else {
+                            None
+                        };
+                    map.insert(
+                        dag.dag_inner[fngi],
+                        ReqFnMetric {
+                            ready_sche_time,
+                            sche_time: None,
+                            data_recv_done_time: None,
+                            cold_start_done_time: None,
+                            fn_done_time: None,
+                        },
+                    );
                 }
                 map
             },
@@ -349,7 +364,11 @@ impl SimEnv {
 
             for (dag_i, &(mut avg_frequency, cv)) in env.help.fn_call_frequency().iter() {
                 if env.help.config().request_freq_low() {
-                    avg_frequency *= 0.1;
+                    avg_frequency *= 0.3;
+                } else if env.help.config().request_freq_middle() {
+                    avg_frequency *= 0.6;
+                } else {
+                    avg_frequency *= 0.6;
                 }
                 // avg_frequency *= 100.0;
                 // avg_frequency *= 10.0;
@@ -360,8 +379,6 @@ impl SimEnv {
                 *accum_freq = random_frequency - (req_cnt as f64);
 
                 total_req_cnt += req_cnt;
-
-                // println!("DAG Index: {}, Avg Frequency: {}, CV: {}, Random Frequency: {}, Request Count: {}", dag_i, avg_frequency, cv, random_frequency, req_cnt);
 
                 for _ in 0..req_cnt {
                     let request = Request::new(env, *dag_i, env.core.current_frame());
@@ -428,7 +445,10 @@ impl SimEnv {
     pub fn request<'a>(&'a self, i: ReqId) -> Ref<'a, Request> {
         let b = self.core.requests();
 
-        Ref::map(b, |map| { map.get(&i).unwrap_or_else(|| panic!("request {} not found", i)) })
+        Ref::map(b, |map| {
+            map.get(&i)
+                .unwrap_or_else(|| panic!("request {} not found", i))
+        })
     }
 
     // 返回指定请求ID的可变引用
@@ -436,7 +456,8 @@ impl SimEnv {
         let b = self.core.requests_mut();
 
         RefMut::map(b, |map| {
-            map.get_mut(&i).unwrap_or_else(|| panic!("request {} not found", i))
+            map.get_mut(&i)
+                .unwrap_or_else(|| panic!("request {} not found", i))
         })
     }
 }
@@ -450,7 +471,7 @@ mod tests {
     use crate::{
         actions::ESActionWrapper,
         config::Config,
-        fn_dag::{ EnvFnExt, FnDAG },
+        fn_dag::{EnvFnExt, FnDAG},
         request::Request,
         sim_env::SimEnv,
         util,
@@ -464,7 +485,10 @@ mod tests {
         sim_env.core.dags_mut()[0] = FnDAG::instance_map_reduce(0, &sim_env, 4);
         let dag = sim_env.dag(0);
 
-        sim_env.core.requests_mut().insert(0, Request::new(&sim_env, 0, 0));
+        sim_env
+            .core
+            .requests_mut()
+            .insert(0, Request::new(&sim_env, 0, 0));
         let mut req = sim_env.request_mut(0);
 
         let mut walker = dag.new_dag_walker();
@@ -542,7 +566,7 @@ mod tests {
                 Some(Box::new(frame_begin)),
                 Some(Box::new(req_gen)),
                 None,
-                None
+                None,
             );
             runs.push(run);
         }

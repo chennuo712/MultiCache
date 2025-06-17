@@ -5,7 +5,7 @@ CUR_FDIR = os.path.dirname(CUR_FPATH)
 os.chdir(CUR_FDIR)
 
 import yaml,time
-with open("batch_run.yml", 'r') as stream:
+with open("batch_run.yml", 'r', encoding='utf-8') as stream:
     batchconf = yaml.safe_load(stream)
 
 
@@ -113,7 +113,7 @@ def params_compistion():
                 print("")
                 print("-"*40)
                 print("")
-                time.sleep(1)
+                # time.sleep(1)
                 # for t in range(run_time):
                     # print("run")
                     # env.run()

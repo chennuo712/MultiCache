@@ -244,29 +244,43 @@ impl MechConfig {
                     .expect("Please offer fifo cache policy arg");
                 Box::new(crate::cache::fifo::FifoCache::new(limit))
             }
-            // "contemp" => {
+            "ttl" => {
+                let limit = arg
+                    .parse::<usize>()
+                    .expect("Please offer ttl cache policy arg");
+                Box::new(crate::cache::ttl::TTLCache::new(limit))
+            }
+            // "ttl_new" => {
             //     let limit = arg
-            //         .parse::<f64>()
-            //         .expect("Please offer contemp cache policy arg");
-            //     let hot = 0.7 * limit + 1.0;
-            //     let warm = 0.3 * limit;
-
-            //     let hot_capacity = hot as usize;
-            //     let warm_capacity = warm as usize;
-            //     Box::new(crate::cache::contemp::ContempCache::new(
-            //         hot_capacity,
-            //         warm_capacity,
-            //     ))
+            //         .parse::<usize>()
+            //         .expect("Please offer ttl_new cache policy arg");
+            //     Box::new(crate::cache::ttl_new::TTLCache::new(limit))
             // }
             "contemp" => {
                 let limit = arg
                     .parse::<usize>()
                     .expect("Please offer contemp cache policy arg");
-                Box::new(crate::cache::contemp::ContempCache::new(
-                    limit,
-                    // node_id,
-                    // env,
-                ))
+                Box::new(crate::cache::contemp::ContempCache::new(limit))
+            }
+            "duo" => {
+                let limit = arg
+                    .parse::<usize>()
+                    .expect("Please offer duo cache policy arg");
+                let part1 = (limit as f64 * 0.7).round() as usize;
+                let part2 = limit - part1;
+                Box::new(crate::cache::dualqueue::DualQueueCache::new(part1, part2))
+            }
+            "cfc" => {
+                let limit = arg
+                    .parse::<usize>()
+                    .expect("Please offer cfc cache policy arg");
+                Box::new(crate::cache::scache::SCache::new(limit))
+            }
+            "faascache" => {
+                let limit = arg
+                    .parse::<usize>()
+                    .expect("Please offer faascache cache policy arg");
+                Box::new(crate::cache::faascache::FaasCache::new(limit))
             }
             "no_evict" => Box::new(crate::cache::no_evict::NoEvict::new()),
             _ => panic!("new_instance_cache_policy"),

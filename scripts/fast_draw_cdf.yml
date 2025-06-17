@@ -1,0 +1,5 @@
+# 数据目录配置
+records_dir: "records"  # JSON数据文件所在的目录
+
+# 输出配置
+output_dir: "output"    # 图表输出目录 

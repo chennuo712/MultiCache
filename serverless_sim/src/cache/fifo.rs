@@ -1,7 +1,10 @@
+use std::cell::RefMut;
 use std::{cell::RefCell, cmp::Eq, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use super::InstanceCachePolicy;
 use super::ListNode;
+use crate::fn_dag::FnContainer;
+use crate::sim_env::SimEnv;
 
 // Fifo缓存结构
 pub struct FifoCache<Payload: Eq + Hash + Clone + Debug> {
@@ -12,7 +15,12 @@ pub struct FifoCache<Payload: Eq + Hash + Clone + Debug> {
 }
 
 impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for FifoCache<Payload> {
-    fn get(&mut self, key: Payload, last_mem_use: f32) -> Option<Payload> {
+    fn get(
+        &mut self,
+        key: Payload,
+        fncon: &RefMut<'_, FnContainer>,
+        env: &SimEnv,
+    ) -> Option<Payload> {
         if let Some(_rc_node) = self.cache.get(&key) {
             return Some(key);
         }
@@ -24,9 +32,13 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for FifoCa
         &mut self,
         key: Payload,
         mut can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
+        env: &SimEnv,
+        cold_start_time: usize,
+        cold_start_cpu_use: f32,
+        cold_start_mem_use: f32,
     ) -> (Option<Payload>, bool) {
         if self.cache.contains_key(&key) {
-            let _listnode = self.cache.get(&key).unwrap().clone();
+            // let _listnode = self.cache.get(&key).unwrap().clone();
             //listnode.borrow_mut().value = Some(value);
             return (None, true);
             //找到了，id为None，put成功
@@ -68,6 +80,11 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for FifoCa
             return true;
         }
         false
+    }
+
+    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
+        let Vec = Vec::new();
+        Vec
     }
 }
 

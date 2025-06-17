@@ -13,6 +13,7 @@ mod network;
 mod node;
 mod output;
 mod request;
+mod rl_target;
 mod scale;
 mod sche;
 mod score;
@@ -24,25 +25,28 @@ mod sim_timer;
 mod state;
 mod util;
 mod with_env_sub;
-mod rl_target;
 
-use env_logger::{ Builder };
+use env_logger::Builder;
 use log::LevelFilter;
 use mechanism_conf::ModuleMechConf;
 use std::io::Write;
-use std::{ time::Duration };
+use std::time::Duration;
 
 #[macro_use]
 extern crate lazy_static;
 
 #[tokio::main]
 async fn main() {
-    let keyword: Vec<&'static str> = //vec![];
-        vec!["::sche", "::mechanism ", "::scale"]; // no algo log
+    let keyword: Vec<&'static str> = vec![];
+    // vec!["::sche", "::mechanism ", "::scale"]; // no algo log
     Builder::new()
         .filter(None, LevelFilter::Info)
         .format(move |buf, record| {
-            let message = format!("{} {}", record.module_path().unwrap_or("no_mod"), record.args());
+            let message = format!(
+                "{} {}",
+                record.module_path().unwrap_or("no_mod"),
+                record.args()
+            );
             for k in &keyword {
                 if message.contains(k) {
                     return Ok(());
@@ -61,7 +65,7 @@ async fn main() {
     network::start().await;
 }
 
-/* 
+/*
 每1帧生成
 节点数量修改为了30个
 mix模式生成的应用为单函数、dag各5个
@@ -77,8 +81,8 @@ const NODE_SCORE_CPU_WEIGHT: f32 = 0.5;
 const NODE_SCORE_MEM_WEIGHT: f32 = 0.5;
 
 // const NODE_CNT: usize = 10;
-const NODE_CNT: usize = 30;
+const NODE_CNT: usize = 10;
 
-const CONTAINER_BASIC_MEM: f32 = 199.0;
+const CONTAINER_BASIC_MEM: f32 = 100.0;
 
-const NODE_LEFT_MEM_THRESHOLD: f32 = 2500.0;
+const NODE_LEFT_MEM_THRESHOLD: f32 = 2000.0;

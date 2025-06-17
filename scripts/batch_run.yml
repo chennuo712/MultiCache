@@ -1,61 +1,135 @@
-run_time: 4
+run_time: 5
 
 params:
   request_freq:
-  - low:
+  # - low:
+  # - middle:
   - high:
   dag_type:
-  - single:
+  # - single:
+  # - mix:
+  - dag:
   no_mech_latency:
   - true:
-  - false:
+  # - false:
 
 mech_scale_sche:
-  scale_sche_joint:
-    scale_num:
-    - hpa:
-    - temp_scaler:
-    scale_down_exec:
-    - default:
-    scale_up_exec:
-    - least_task:
-    sche:
-    - pos: greedy
-    - pos: random
-    filter:
-    - []
-    - [{'careful_down':''}]
+  # scale_sche_joint:
+  #   scale_num:
+  #   # - hpa:
+  #   # - temp_scaler:
+  #   - ensure_scaler:
+  #   scale_down_exec:
+  #   - default:
+  #   scale_up_exec:
+  #   - least_task:
+  #   sche:
+  #   # - bp_balance:
+  #   # - pos: greedy
+  #   - ensure_scheduler:
+  #   filter:
+  #   # - []
+  #   - [{'careful_down':''}]
+
   scale_sche_separated:
     scale_num:
+    # - temp_scaler:
     - hpa:
+    # - full_placement:
+    # - lass:
     scale_down_exec:
     - default:
     scale_up_exec:
     - least_task:
     sche:
-    - greedy:
-    - random:
-    - rotate:
+    # - greedy:
+    - hash:
+    # - random:
+    # - load_least:
+    # - rotate:
+    # - pass:
     filter:
-    - []
+    # - []
     - [{'careful_down':''}]
-  no_scale:
-    scale_num:
-    - 'no':
-    scale_down_exec:
-    - default:
-    scale_up_exec:
-    - 'no':
-    sche:
-    - greedy:
-    - random:
-    - rotate:
-    filter:
-    - []
+
+  # no_scale:
+  #   scale_num:
+  #   - 'no':
+  #   scale_down_exec:
+  #   - default:
+  #   scale_up_exec:
+  #   - 'no':
+  #   sche:
+  #   # - greedy:
+  #   # - hash:
+  #   # - random:
+  #   # - rotate:
+  #   # - faasflow:
+  #   filter:
+  #   - []
 
 mech_other:
   instance_cache_policy:
-  - no_evict:
-  # - lru: 15
-  # - lru: 10
+  # - no_evict:
+  # - arc:
+  # - contemp: 
+  # - duo: 
+  # - fifo: 
+  # - lru: 
+  # - ttl: 
+  # - ttl_new:
+  # - cfc: 
+  # - contemp_ttl: 
+  # - contemp_pre: 
+  # - contemp_ttl_pre: 
+
+
+  # - contemp: 5
+  # - ttl: 5
+  # - cfc: 5
+  # - duo: 5
   # - lru: 5
+  # - faascache: 5
+
+  # - contemp: 10
+  # - ttl: 10
+  # - cfc: 10
+  # - duo: 10
+  # - lru: 10
+  # - faascache: 10
+
+  - contemp: 20
+  # - ttl: 20
+  # - cfc: 20
+  # - duo: 20
+  # - lru: 20
+  # - faascache: 20
+
+  # - contemp: 50
+  # - ttl: 50
+  # - cfc: 50
+  # - duo: 50
+  # - lru: 50
+  # - faascache: 50
+
+  # 消融实验
+  # - contemp: 10
+  # - no_freq: 10
+  # - no_mem: 10
+  # - no_cpu: 10
+  # - no_cst: 10
+  # - no_callcount: 10
+  # - no_attenuation: 10
+
+  # # 超参数实验----冷却常数
+  # - contemp_01: 10
+  # - contemp_1: 10
+  # - contemp_2: 10
+  # - contemp_3: 10
+  # - contemp_4: 10
+  # - contemp_5: 10
+  # - contemp_6: 10
+  # - contemp_7: 10
+  # - contemp_8: 10
+  # - contemp_9: 10
+  # - contemp_99: 10

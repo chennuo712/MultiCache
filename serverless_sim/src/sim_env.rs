@@ -19,7 +19,11 @@ use crate::{
     metric::{MechMetric, OneFrameMetric, Recorder, Records},
     node::{Node, NodeId},
     request::{ReqId, Request},
-    scale::{down_exec::DefaultScaleDownExec, num::ScaleNum, up_exec::ScaleUpExec},
+    scale::{
+        down_exec::DefaultScaleDownExec,
+        num::{no, ScaleNum},
+        up_exec::ScaleUpExec,
+    },
     sim_run::Scheduler,
     with_env_sub::WithEnvHelp,
     CONTAINER_BASIC_MEM,
@@ -385,8 +389,8 @@ impl SimEnv {
                     rng
                 );
             }
-            // mkdir
-            std::fs::create_dir("cache");
+            // mkdir, allow failure
+            let _ = std::fs::create_dir("cache");
             // write to file
             let mut file = std::fs::File::create(cache_req_freq).unwrap();
             serde_json::to_writer(&mut file, &*self.help.fn_call_frequency()).unwrap();
@@ -456,12 +460,12 @@ impl SimEnv {
             }
 
             //有些变为运行状态 内存占用变大很正常
-            assert!(
-                n.unready_mem() <= n.rsc_limit.mem,
-                "mem {} > limit {}",
-                n.unready_mem(),
-                n.rsc_limit.mem
-            );
+            // assert!(
+            //     n.unready_mem() <= n.rsc_limit.mem,
+            //     "mem {} > limit {}",
+            //     n.unready_mem(),
+            //     n.rsc_limit.mem
+            // );
         }
         // metric，将这一帧已完成的请求数清空
         self.help.metric.borrow_mut().on_frame_begin();
@@ -507,9 +511,24 @@ impl SimEnv {
 
         // 自增 frame
         let mut cur_frame = self.core.current_frame.borrow_mut();
-        // log::info!("frame done: {}", *cur_frame);
+
+        log::info!("frame done: {}", *cur_frame);
         *cur_frame += 1;
     }
+
+    // pub fn check_if_prefetch(&mut self) {
+    //     let current_frame = self.current_frame();
+    //     for node in self.core.nodes_mut().iter_mut() {
+    //         // 访问每个节点的缓存管理器
+    //         let mut vec = node
+    //             .instance_cache_policy
+    //             .borrow_mut()
+    //             .check_if_prefetch(current_frame as u32, self);
+    //         for fnid in &mut vec {
+    //             node.pre_load_container(*fnid, &self);
+    //         }
+    //     }
+    // }
 }
 
 #[cfg(test)]

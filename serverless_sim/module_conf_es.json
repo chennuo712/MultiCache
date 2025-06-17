@@ -1,42 +1,69 @@
 {
   "mech_type": {
     "no_scale": null,
-    "scale_sche_separated": null,
-    "scale_sche_joint": null
+    "scale_sche_joint": null,
+    "scale_sche_separated": null
   },
   "scale_num": {
-    "full_placement": null,
+    "temp_scaler": null,
     "no": null,
+    "ensure_scaler": null,
     "lass": null,
+    "full_placement": null,
     "rela": null,
-    "hpa": null,
-    "temp_scaler": null
+    "hpa": null
   },
   "scale_down_exec": {
     "default": null
   },
   "scale_up_exec": {
-    "least_task": null,
-    "no": null
+    "no": null,
+    "least_task": null
   },
   "sche": {
     "consistenthash": null,
-    "hash": null,
-    "bp_balance": null,
+    "pos": null,
+    "fnsche": null,
+    "faasflow": null,
+    "ensure_scheduler": null,
+    "load_least": null,
     "random": null,
     "greedy": null,
-    "faasflow": null,
+    "bp_balance": null,
     "rotate": null,
-    "pass": null,
-    "fnsche": null,
-    "pos": null
+    "hash": null,
+    "pass": null
   },
   "filter": {
     "careful_down": null
   },
   "instance_cache_policy": {
-    "no_evict": null,
+    "contemp_4": null,
+    "contemp_5": null,
+    "contemp_6": null,
+    "no_freq": null,
+    "contemp_8": null,
+    "duo": null,
+    "cfc": null,
+    "contemp_3": null,
+    "contemp_9": null,
     "lru": null,
-    "fifo": null
+    "ttl_new": null,
+    "contemp_99": null,
+    "arc": null,
+    "no_cst": null,
+    "faascache": null,
+    "contemp_1": null,
+    "contemp_7": null,
+    "no_callcount": null,
+    "contemp": null,
+    "no_evict": null,
+    "no_mem": null,
+    "fifo": null,
+    "no_cpu": null,
+    "contemp_01": null,
+    "no_attenuation": null,
+    "ttl": null,
+    "contemp_2": null
   }
 }

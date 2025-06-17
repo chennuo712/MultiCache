@@ -2,22 +2,25 @@
 算法流程：https://fvd360f8oos.feishu.cn/docx/QbXqdmszVo4lOsxvveacdDOMn6c?from=from_copylink
 */
 
-use std::cell::{ RefCell };
-use std::collections::{ HashMap, VecDeque };
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 
 use crate::fn_dag::EnvFnExt;
 use crate::mechanism::SimEnvObserve;
 use crate::node::EnvNodeExt;
-use crate::with_env_sub::{ WithEnvCore };
-use crate::{ actions::ESActionWrapper, fn_dag::FnId, CONTAINER_BASIC_MEM };
+use crate::with_env_sub::WithEnvCore;
+use crate::{actions::ESActionWrapper, fn_dag::FnId, CONTAINER_BASIC_MEM};
 
-use super::{ down_filter::{ CarefulScaleDownFilter, ScaleFilter }, ScaleNum };
+use super::{
+    down_filter::{CarefulScaleDownFilter, ScaleFilter},
+    ScaleNum,
+};
 
 // 定义Hawkes过程参数类型
 struct HawkesParams {
-    mu: f64, // 在无历史调用影响下的平均调用率
+    mu: f64,    // 在无历史调用影响下的平均调用率
     alpha: f64, // 单个触发事件的影响力
-    beta: f64, // 衰减率，表示过去调用对当前调用率影响的衰减速度
+    beta: f64,  // 衰减率，表示过去调用对当前调用率影响的衰减速度
 }
 impl HawkesParams {
     fn new() -> HawkesParams {
@@ -114,10 +117,9 @@ impl TempScaleNum {
                     break;
                 }
 
-                temp +=
-                    (frame_count_temp.count as f64) *
-                    alpha *
-                    (-beta * ((calculate_frame - frame_count_temp.frame) as f64)).exp();
+                temp += (frame_count_temp.count as f64)
+                    * alpha
+                    * (-beta * ((calculate_frame - frame_count_temp.frame) as f64)).exp();
             }
         }
 
@@ -153,10 +155,7 @@ impl TempScaleNum {
 
             // 求方差
             let variance =
-                samples
-                    .iter()
-                    .map(|&x| (x - mean).powi(2))
-                    .sum::<f64>() / (samples.len() as f64);
+                samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (samples.len() as f64);
 
             // 求标准差
             let std_dev = variance.sqrt();
@@ -177,16 +176,22 @@ impl ScaleNum for TempScaleNum {
         &mut self,
         env: &SimEnvObserve,
         fnid: FnId,
-        _action: &ESActionWrapper
+        _action: &ESActionWrapper,
     ) -> usize {
         // 初始化======================================================================================
         // 获得当前帧数
         let current_frame = env.core().current_frame();
 
         // 如果该函数是第一次进行扩缩容操作，则初始化参数、调用记录、历史记录
-        self.fn_params.entry(fnid).or_insert_with(|| RefCell::new(HawkesParams::new()));
-        self.fn_call_history.entry(fnid).or_insert_with(|| RefCell::new(VecDeque::new()));
-        self.fn_temp_history.entry(fnid).or_insert_with(|| RefCell::new(VecDeque::new()));
+        self.fn_params
+            .entry(fnid)
+            .or_insert_with(|| RefCell::new(HawkesParams::new()));
+        self.fn_call_history
+            .entry(fnid)
+            .or_insert_with(|| RefCell::new(VecDeque::new()));
+        self.fn_temp_history
+            .entry(fnid)
+            .or_insert_with(|| RefCell::new(VecDeque::new()));
         self.fn_temp_scale_sign.entry(fnid).or_insert_with(|| 0);
 
         // ============================================================================================
@@ -199,7 +204,10 @@ impl ScaleNum for TempScaleNum {
         let requests = env.core().requests();
 
         // 遍历所有请求，只看当前帧到达的请求
-        for (_, req) in requests.iter().filter(|(_, req)| req.begin_frame == current_frame) {
+        for (_, req) in requests
+            .iter()
+            .filter(|(_, req)| req.begin_frame == current_frame)
+        {
             // 拿到该请求对应的DAG
             let mut walker = env.dag(req.dag_i).new_dag_walker();
             // 遍历DAG里面的所有图节点
@@ -265,9 +273,9 @@ impl ScaleNum for TempScaleNum {
         let mut desired_container_cnt = cur_container_cnt;
 
         // 如果记录表长度小于 10，或者最近10帧内使用过温度进行扩缩容，则不进行温度决策
-        if
-            temp_recent.len() >= temp_history_min_len &&
-            current_frame - self.fn_temp_scale_sign.get(&fnid).unwrap() > self.temp_care_window_len
+        if temp_recent.len() >= temp_history_min_len
+            && current_frame - self.fn_temp_scale_sign.get(&fnid).unwrap()
+                > self.temp_care_window_len
         {
             // 新建一个扩缩容关心温度变化记录表
             let mut temp_care_records: VecDeque<f64> = VecDeque::new();
@@ -291,6 +299,7 @@ impl ScaleNum for TempScaleNum {
 
             // 如果温度增量的绝对值大于温度变化感知阈值，则进行扩缩容决策
             if temp_change.abs() > threshold {
+                // MARK 该增率的计算方式与论文中所写的不一致，后续有时间应该进一步实验测试对比一下现计算方式和论文中所写计算方式的优劣
                 // 计算容器数量的增率
                 let container_inc_rate = temp_change.abs() / threshold;
 
@@ -307,23 +316,21 @@ impl ScaleNum for TempScaleNum {
                     let node = env.node(container.node_id);
 
                     // 累加所有容器上的已有的函数实例数量得到总的函数实例数量
-                    fn_instance_cnt += ((container.last_frame_mem - CONTAINER_BASIC_MEM) /
-                        fn_mem) as i32;
+                    fn_instance_cnt +=
+                        ((container.last_frame_mem - CONTAINER_BASIC_MEM) / fn_mem) as i32;
 
                     // 累加容器节点上空闲可分配的实例数量，但是这些可分配的内存是公用的，每个函数平分剩余的空闲内存
-                    idle_fn_instance_cnt += (
-                        (node.rsc_limit.mem - node.last_frame_mem) /
-                        (fn_mem * (node.fn_containers.borrow().len() as f32))
-                    ).floor() as i32;
+                    idle_fn_instance_cnt += ((node.rsc_limit.mem - node.last_frame_mem)
+                        / (fn_mem * (node.fn_containers.borrow().len() as f32)))
+                        .floor() as i32;
                 });
 
                 // 决策扩容
                 if temp_change > 0.0 {
+                    // MARK 该增量的计算方式与论文中所写的不一致，后续有时间应该进一步实验测试对比一下现计算方式和论文中所写计算方式的优劣
                     // 根据温度增量计算容器数量的增量
-                    let container_change = (
-                        (fn_instance_cnt as f64) *
-                        (container_inc_rate - 1.0)
-                    ).ceil() as i32;
+                    let container_change =
+                        ((fn_instance_cnt as f64) * (container_inc_rate - 1.0)).ceil() as i32;
 
                     // 如果所需要的实例数量大于空闲的实例数量，则进行扩容
                     if container_change >= idle_fn_instance_cnt {
@@ -339,9 +346,8 @@ impl ScaleNum for TempScaleNum {
                         desired_container_cnt += 1;
                     }
                 } else if
-                    // 决策缩容
-                    desired_container_cnt > 1
-                {
+                // 决策缩容
+                desired_container_cnt > 1 {
                     // 标记这一帧用温度策略决定扩缩容
                     scale_sign = true;
 
@@ -368,9 +374,8 @@ impl ScaleNum for TempScaleNum {
                 // 统计cpu、mem情况
                 container_avg_cpu_util += container.cpu_use_rate();
 
-                container_avg_mem_util +=
-                    container.last_frame_mem /
-                    (env.node(container.node_id).left_mem() + container.last_frame_mem);
+                container_avg_mem_util += container.last_frame_mem
+                    / (env.node(container.node_id).left_mem() + container.last_frame_mem);
             });
             // 计算平均
             container_avg_mem_util /= cur_container_cnt as f32;
@@ -384,9 +389,26 @@ impl ScaleNum for TempScaleNum {
         }
         // ----------------------------------------------------------------------------------------
 
-        // 每个函数至少要有一个容器
-        if desired_container_cnt == 0 {
+        // 先取出该函数的最后一次的调用时间
+        let mut last_call_frame = 0;
+        match self.fn_call_history.get(&fnid).unwrap().borrow().back() {
+            Some(last_call) => {
+                last_call_frame = last_call.frame;
+            }
+            None => {}
+        }
+
+        // 对于容器数量为0的函数，如果最后一次调用距离现在的长度小于历史调用窗口长度，则变为一个容器
+        if desired_container_cnt == 0
+            && last_call_frame + self.call_history_window_len >= current_frame
+        {
             desired_container_cnt = 1;
+        }
+        // 对于容器数量是1的函数，如果最后一次调用距离现在的长度大于历史调用窗口长度，则缩容为0个容器
+        else if desired_container_cnt == 1
+            && last_call_frame + self.call_history_window_len < current_frame
+        {
+            desired_container_cnt = 0;
         }
 
         // log::info!("函数:{}, 在第{}帧的目标容器数量为：{}.scale_for_fn()结束", fnid, current_frame, desired_container_cnt);

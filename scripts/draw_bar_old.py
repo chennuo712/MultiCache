@@ -327,167 +327,131 @@ def to_draw_meta(groups,conf):
 
     return res
 
-def draw_with_draw_meta(drawmeta, conf):
-    # 预定义缓存策略颜色和显示顺序
-    cache_policy_order = ['contemp','cfc',  'duo', 'lru', 'ttl']
-    cache_policy_colors = {
-        'contemp': '#FFB62B',
-        'cfc': '#FC6B05',
-        'duo': '#65B017',
-        'lru': '#99D8DB',
-        'ttl': '#8A2BE2'
-    }
+def draw_with_draw_meta(drawmeta,conf):
+    # ax2 = plt.subplot(2, 3, 1)
+    # ax1 = plt.subplot(2, 3, 2)
+    # ax = plt.subplot(2,3, 3)
+    plotcnt=len(conf['values'])
+    fig, plots = plt.subplots(1, plotcnt, figsize=(18, 6))
+    # plots=[ax,ax1,ax2]
 
-    # 创建图表
-    fig, ax = plt.subplots(figsize=(15, 7))
+    plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.1)
+    fig.set_size_inches(16, 4.5)
+    bar_width = 0.05
+    index = np.arange(len(conf['group']['types']))
+    opacity = 0.4
+    error_config = {'ecolor': '0.3'}
+    patterns = ('x', '\\', '*', 'o', '.','O')
+    colors=["#FC6B05","#FFB62B","#65B017","#99D8DB","#9BB7BB","#32CD32","#228B22","#8A2BE2"]
     
-    # X轴参数
-    n_policies = 5
-    bar_width = 0.15
-    spacing = 0.4
-    
-    # 绘制柱子
-    x_ticks = []
-    x_labels = []
-    current_x = 0
-    
-    for freq_idx, freq in enumerate(conf['group']['types']):
-        group_start = current_x
-        
-        # 按固定顺序绘制策略柱子
-        for policy_idx, policy in enumerate(cache_policy_order):
-            x_pos = group_start + policy_idx * bar_width
-            value = _get_value_by_freq_and_policy(drawmeta, freq, policy)
-            ax.bar(x_pos, value, width=bar_width-0.02,
-                  color=cache_policy_colors[policy],
-                  edgecolor='black',
-                  label=policy.upper())  # 添加label参数
+    plotidx=0
+    for plot in plots:
+        meta=drawmeta[plotidx]
+        groups=meta['groups']
+        plot.set_xticks(index)
+        plot.set_xticklabels(conf['group']['type_alias'])
 
-        x_ticks.append(group_start + (n_policies-1)*bar_width/2)
-        x_labels.append(freq.upper())
-        current_x = group_start + n_policies*bar_width + spacing
+        plot.set_xlabel(conf['group']['alias'])
+        plot.text(-1.26*(len(plots)-plotidx)+1.76, 1.05, meta['value_y'], ha='center', va='center', rotation=0, transform=plt.gca().transAxes)
+        # plot.set_ylabel(meta['value_y'],labelpad=10, rotation=0, verticalalignment='top')
 
-    # 设置坐标轴
-    ax.set_xticks(x_ticks)
-    ax.set_xticklabels(x_labels, fontsize=12)
-    ax.set_ylabel(drawmeta[0]['value_y'], fontsize=12)
-    ax.grid(axis='y', linestyle='--', alpha=0.6)
+        model_value={
+            'v':None
+        }
+        def set_model_value(v):
+            print("set_model_value",v)
+            if isinstance(v, list):
+                model_value['v']=[0 for _ in range(len(v))]
+            else:
+                model_value['v']=0
+        value_idx=0
+        for target_alias in conf['targets_alias']:
+            # print(model_value)
+            values=[]
+            value_alias=target_alias[1]
 
-    # 处理图例（关键修改部分）
-    handles, labels = ax.get_legend_handles_labels()
+            
+            def find_value_in_group(group,value_alias):
+                for value in group['values']:
+                    if value[0]==value_alias:
+                        set_model_value(value[1])
+                        return value[1]
+                if model_value['v']==None:
+                    # print(group,value_alias)
+                    print("err!!!!!, at least the first data source should be complete")
+                    exit(1)
+                return model_value['v']
+
+            #收集对应value alias在不同group里的值
+            for group in groups:
+                # print(model_value)
+                values.append(find_value_in_group(group,value_alias))
+            
+            
+            # values maybe [[a,b,c],[a,b,c]]
+            # we need to make it into [a,a][b,b][c,c]
+            bars_values=[]
+            if isinstance(values[0], list):
+                # 前缀和
+                for value in values:
+                    for i in range(1,len(value)):
+                        value[i]=value[i-1]+value[i]
+
+                sub_v_cnt=len(values[0])
+                for i in range(sub_v_cnt):
+                    bars_values.append([value[i] for value in values])
+            else:
+                bars_values.append(values)
+            
+            print(meta['value_y'],value_alias,bars_values)
+
+            level=len(bars_values)
+            def leveled_color(color,curlevel):
+                def hex_to_rgb(hex_color):
+                    # 将十六进制颜色转换为 RGB 元组
+                    hex_color = hex_color.lstrip('#')
+                    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+                def rgb_to_hex(rgb_color):
+                    # 将 RGB 元组转换为十六进制颜色
+                    return '#{:02x}{:02x}{:02x}'.format(*rgb_color)
+
+                def adjust_brightness(hex_color, factor):
+                    # 确保因子在 0 到 2 的范围内
+                    factor = max(min(factor, 2.0), 0.0)
+                    # 将十六进制颜色转换为 RGB
+                    rgb = hex_to_rgb(hex_color)
+                    # 调整亮度
+                    new_rgb = tuple(min(int(c * factor), 255) for c in rgb)
+                    # 将新的 RGB 值转换为十六进制颜色
+                    new_color = rgb_to_hex(new_rgb)
+                    return new_color
+
+                return adjust_brightness(color,1-0.15*curlevel)
+            for barlevel,bar_values in reversed(list(enumerate(bars_values))):
+                plot.bar(index+value_idx*bar_width,bar_values,bar_width,
+                    color=(leveled_color(colors[value_idx%len(colors)],barlevel)),
+                    label=value_alias,edgecolor="black"
+                )
+            value_idx+=1
+        plotidx+=1
+# 调整子图的边距以确保图例不会覆盖图表内容
+
     
-    # 去重并保持顺序
-    seen = set()
-    unique_handles = []
-    unique_labels = []
-    for h, l in zip(handles, labels):
-        if l not in seen:
-            seen.add(l)
-            unique_handles.append(h)
-            unique_labels.append(l)
-    
-    # 横向排列在顶部
-    ax.legend(unique_handles, unique_labels,
-             loc='lower center',
-             bbox_to_anchor=(0.5, 1.05),  # 1.05表示在图表上方5%的位置
-             ncol=5,  # 5个策略横向排列
-             fontsize=10,
-             title_fontsize=12,
-             frameon=False,  # 去掉图例外框
-             columnspacing=1.5  # 调整标签间距
-            )
+    plt.tight_layout()
 
-    # 调整顶部边距
-    plt.subplots_adjust(top=0.85)
+    plt.subplots_adjust(top=0.9,right=0.6,wspace=0.25, hspace=0.25)
+    # plt.legend(loc='upper right')
+    
+    # 调整图例位置到图表外
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='xx-small')
+
+    # plt.legend(fontsize='xx-small')
+    
+
     
     plt.show()
-
-def _get_value_by_freq_and_policy(drawmeta, freq, policy):
-    """从数据中提取具体数值的辅助函数"""
-    for value_meta in drawmeta:
-        for group in value_meta['groups']:
-            if group['group'] == freq:
-                for value in group['values']:
-                    # 假设value[0]包含策略标识符（如sd...ic(cfc.50)）
-                    if f'ic({policy}.' in value[0]:
-                        return float(value[1]) if not isinstance(value[1], list) else sum(value[1])
-    return 0.0  # 默认值
-
-# def draw_with_draw_meta(drawmeta, conf):
-#     # 预定义五种缓存策略颜色
-#     cache_policy_colors = {
-#         'cfc': '#FC6B05',    # 橙色
-#         'contemp': '#FFB62B', # 黄色
-#         'duo': '#65B017',    # 绿色
-#         'lru': '#99D8DB',    # 青色
-#         'ttl': '#8A2BE2'     # 紫色
-#     }
-
-#     # 创建单一图表
-#     fig, ax = plt.subplots(figsize=(15, 6))
     
-#     # X轴参数
-#     n_policies = 5  # 5种缓存策略
-#     n_freq = 3      # low/mid/high
-#     bar_width = 0.15
-#     spacing = 0.6   # 不同负载类别之间的间隔
-    
-#     # 计算柱子位置
-#     x_ticks = []
-#     x_labels = []
-#     current_x = 0
-#     for freq_idx, freq in enumerate(conf['group']['types']):
-#         # 每组负载的起始位置
-#         group_start = current_x
-        
-#         # 绘制该负载下的五种策略柱子
-#         for policy_idx, policy in enumerate(cache_policy_colors.keys()):
-#             x_pos = group_start + policy_idx * bar_width
-#             # 从数据中提取值（需要根据实际数据结构调整）
-#             value = _get_value_by_freq_and_policy(drawmeta, freq, policy)
-#             ax.bar(x_pos, value, width=bar_width-0.02, 
-#                   color=cache_policy_colors[policy],
-#                   edgecolor='black')
-        
-#         # 记录标签位置
-#         x_ticks.append(group_start + (n_policies-1)*bar_width/2)
-#         x_labels.append(freq.upper())
-        
-#         # 更新下一个组的起始位置
-#         current_x = group_start + n_policies*bar_width + spacing
-
-#     # 设置X轴
-#     ax.set_xticks(x_ticks)
-#     ax.set_xticklabels(x_labels, fontsize=12)
-    
-#     # 添加辅助网格线
-#     ax.grid(axis='y', linestyle='--', alpha=0.6)
-    
-#     # 添加图例
-#     legend_handles = [
-#         plt.Rectangle((0,0),1,1, fc=cache_policy_colors[policy])
-#         for policy in cache_policy_colors
-#     ]
-#     ax.legend(legend_handles, cache_policy_colors.keys(),
-#              title='Cache Policy',
-#              bbox_to_anchor=(1.02, 1),
-#              loc='upper left')
-
-#     plt.show()
-
-
-# # 辅助函数：根据负载频率和策略获取值（需要根据实际数据结构实现）
-# def _get_value_by_freq_and_policy(drawmeta, freq, policy):
-#     # 这里需要根据实际数据结构实现数据匹配逻辑
-#     # 示例伪代码：
-#     for value_group in drawmeta:
-#         for group in value_group['groups']:
-#             if group['group'] == freq:
-#                 for value in group['values']:
-#                     if policy in value[0]:  # 假设value[0]包含策略标识
-#                         return value[1] if not isinstance(value[1], list) else sum(value[1])
-#     return 0
-# 调整子图的边距以确保图例不会覆盖图表内容
     
 def pipeline():
     import sys

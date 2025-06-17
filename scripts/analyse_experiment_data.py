@@ -28,6 +28,7 @@ FRAME_IDX_REQ_DATA_RECV_TIME = 11;             # 数据接收时间
 FRAME_IDX_REQ_EXE_TIME = 12;                   # 请求的执行时间
 FRAME_IDX_ALGO_EXE_TIME = 13;                  # 算法执行时间
 FRAME_IDX_FNCONTAINER_COUNT = 14;              # 总的容器数量
+FRAME_IDX_CACHE_HIT_RATIO = 15;                # 每个节点的平均缓存命中率
 
 """ 
 目前比较的指标有：

@@ -1,4 +1,4 @@
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 
 use crate::mechanism_conf::MechConfig;
 
@@ -162,11 +162,7 @@ impl Config {
     pub fn no_mech_str(&self) -> String {
         format!(
             "sd{}.rf{}.dt{}.cs{}.ft{}",
-            self.rand_seed,
-            self.request_freq,
-            self.dag_type,
-            self.cold_start,
-            self.fn_type
+            self.rand_seed, self.request_freq, self.dag_type, self.cold_start, self.fn_type
         )
     }
     pub fn str(&self) -> String {
@@ -175,7 +171,9 @@ impl Config {
         let scup = self.mech.scale_up_exec_conf();
         let sche = self.mech.sche_conf();
         let ins_cache = self.mech.instance_cache_policy_conf();
-        let mut some_filter = self.mech.filter
+        let mut some_filter = self
+            .mech
+            .filter
             .iter()
             .filter(|v| v.1.is_some())
             .map(|v| (v.0, v.1.clone().unwrap()))
@@ -193,11 +191,7 @@ impl Config {
             self.dag_type,
             self.cold_start,
             self.fn_type,
-            if self.no_mech_latency {
-                1
-            } else {
-                0
-            },
+            if self.no_mech_latency { 1 } else { 0 },
             self.mech.mech_type().0,
             scnum.0,
             scnum.1,

@@ -174,6 +174,7 @@ class PackedRecord:
     datarecv_time_per_req=0.0
     exe_time_per_req=0.0
     fn_container_cnt=0.0
+    cache_hit_ratio_per_node=0.0
     undone_req_cnt=0.0
     
     rand_seed=""
@@ -235,6 +236,8 @@ class Frame:
         return self.frame[self.idxs['FRAME_IDX_ALGO_EXE_TIME']]
     def fncontainer_count(self):
         return self.frame[self.idxs['FRAME_IDX_FNCONTAINER_COUNT']]
+    def node_cache_hit_ratio(self):
+        return self.frame[self.idxs['FRAME_IDX_CACHE_HIT_RATIO']]
     
 
 def load_record_from_file(filename):
@@ -260,6 +263,7 @@ def load_record_from_file(filename):
         record.datarecv_time_per_req = cacherecord['datarecv_time_per_req']
         record.exe_time_per_req = cacherecord['exe_time_per_req']
         record.fn_container_cnt = cacherecord['fn_container_cnt']
+        record.cache_hit_ratio_per_node = cacherecord['cache_hit_ratio_per_node']
         record.undone_req_cnt = cacherecord['undone_req_cnt']
     else:
         # seek to filesize - 1000 
@@ -288,6 +292,7 @@ def load_record_from_file(filename):
             record.datarecv_time_per_req = frame.req_data_recv_time()
             record.exe_time_per_req = frame.req_exe_time()
             record.fn_container_cnt = total_container_count/frame.frame_cnt()
+            record.cache_hit_ratio_per_node = frame.node_cache_hit_ratio()
             record.undone_req_cnt = len(frame.running_reqs())
 
             # save cache
@@ -303,6 +308,7 @@ def load_record_from_file(filename):
                     'datarecv_time_per_req': record.datarecv_time_per_req,
                     'exe_time_per_req': record.exe_time_per_req,
                     'fn_container_cnt': record.fn_container_cnt,
+                    'cache_hit_ratio_per_node': record.cache_hit_ratio_per_node,
                     'undone_req_cnt': record.undone_req_cnt
                 },f)
 
@@ -338,6 +344,7 @@ def avg_records(records):
     datarecv_time_per_req=0.0
     exe_time_per_req=0.0
     fn_container_cnt=0.0
+    cache_hit_ratio_per_node=0.0
     undone_req_cnt=0.0
     for record in records:
         cost_per_req+=record.cost_per_req
@@ -349,6 +356,7 @@ def avg_records(records):
         datarecv_time_per_req+=record.datarecv_time_per_req
         exe_time_per_req+=record.exe_time_per_req
         fn_container_cnt+=record.fn_container_cnt
+        cache_hit_ratio_per_node+=record.cache_hit_ratio_per_node
         undone_req_cnt+=record.undone_req_cnt
     cost_per_req/=len(records)
     time_per_req/=len(records)
@@ -359,6 +367,7 @@ def avg_records(records):
     datarecv_time_per_req/=len(records)
     exe_time_per_req/=len(records)
     fn_container_cnt/=len(records)
+    cache_hit_ratio_per_node/=len(records)
     undone_req_cnt/=len(records)
 
     # copyback 2 first
@@ -371,6 +380,7 @@ def avg_records(records):
     records[0].datarecv_time_per_req=datarecv_time_per_req
     records[0].exe_time_per_req=exe_time_per_req
     records[0].fn_container_cnt=fn_container_cnt
+    records[0].cache_hit_ratio_per_node=cache_hit_ratio_per_node
     records[0].undone_req_cnt=undone_req_cnt
     return records[0]
 

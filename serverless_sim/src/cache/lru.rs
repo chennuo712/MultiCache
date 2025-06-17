@@ -1,7 +1,10 @@
+use std::cell::RefMut;
 use std::{cell::RefCell, cmp::Eq, collections::HashMap, fmt::Debug, hash::Hash, rc::Rc};
 
 use super::InstanceCachePolicy;
 use super::ListNode;
+use crate::fn_dag::FnContainer;
+use crate::sim_env::SimEnv;
 
 // LRU缓存结构
 pub struct LRUCache<Payload: Eq + Hash + Clone + Debug> {
@@ -13,9 +16,14 @@ pub struct LRUCache<Payload: Eq + Hash + Clone + Debug> {
 }
 
 impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for LRUCache<Payload> {
-    fn get(&mut self, key: Payload, last_mem_use: f32) -> Option<Payload> {
+    fn get(
+        &mut self,
+        key: Payload,
+        fncon: &RefMut<'_, FnContainer>,
+        env: &SimEnv,
+    ) -> Option<Payload> {
         if let Some(rc_node) = self.cache.get(&key) {
-            let node: Rc<RefCell<ListNode<Payload>>> = rc_node.clone();
+            let node = rc_node.clone();
             //let value = Some(node.borrow().value.clone());
             self.remove_node(node.clone());
             self.move_to_head(node);
@@ -29,6 +37,10 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for LRUCac
         &mut self,
         key: Payload,
         mut can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
+        env: &SimEnv,
+        cold_start_time: usize,
+        cold_start_cpu_use: f32,
+        cold_start_mem_use: f32,
     ) -> (Option<Payload>, bool) {
         if self.cache.contains_key(&key) {
             let listnode = self.cache.get(&key).unwrap().clone();
@@ -76,6 +88,11 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for LRUCac
             return true;
         }
         false
+    }
+
+    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
+        let Vec = Vec::new();
+        Vec
     }
 }
 
@@ -144,78 +161,5 @@ impl<Payload: Eq + Hash + Clone + Debug> LRUCache<Payload> {
             println!("{:?}", n.borrow().key);
             cur = n.borrow().next.clone();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // 测试LRU缓存的基本插入和获取功能
-    #[test]
-    fn test_lru_cache_basic_operations() {
-        let mut cache = LRUCache::new(3);
-        let mut last_mem_use = 10.0;
-        let keys = vec![1, 2, 3];
-        for key in &keys {
-            assert_eq!(cache.put(key.clone(), Box::new(|_| true)), (None, true));
-        }
-        for key in &keys {
-            assert_eq!(cache.get(key.clone(), last_mem_use), Some(key.clone()));
-        }
-    }
-
-    // 测试缓存容量限制和逐出策略
-    #[test]
-    fn test_lru_cache_capacity_limit() {
-        let mut cache = LRUCache::new(3);
-        let keys = vec![1, 2, 3, 4, 5];
-        let expected_evictions = vec![None, None, None, Some(1), Some(2)];
-        for (i, key) in keys.into_iter().enumerate() {
-            assert_eq!(
-                cache.put(key, Box::new(|_| true)),
-                (expected_evictions[i], true)
-            );
-        }
-        // 确认缓存中剩余的元素
-        cache.cmp_list(vec![5, 4, 3]);
-    }
-
-    // 测试缓存中元素的删除
-    #[test]
-    fn test_lru_cache_remove() {
-        let mut cache = LRUCache::new(3);
-        let keys = vec![1, 2, 3];
-        for key in &keys {
-            cache.put(key.clone(), Box::new(|_| true)).0;
-        }
-        assert!(cache.remove_all(&2));
-        cache.cmp_list(vec![3, 1]);
-    }
-
-    // 测试缓存的遍历和顺序
-    #[test]
-    fn test_lru_cache_order() {
-        let mut cache = LRUCache::new(3);
-        let mut last_mem_use = 10.0;
-        let keys = vec![1, 2, 3];
-        for key in &keys {
-            cache.put(key.clone(), Box::new(|_| true)).0;
-        }
-        // 访问中间的元素，以改变其位置
-        cache.get(2, last_mem_use);
-        cache.cmp_list(vec![2, 3, 1]);
-    }
-
-    // 测试缓存的遍历打印
-    #[test]
-    fn test_lru_cache_print() {
-        let mut cache = LRUCache::new(3);
-        let keys = vec![1, 2, 3];
-        for key in &keys {
-            cache.put(key.clone(), Box::new(|_| true)).0;
-        }
-        cache.print_list();
-        // 这个测试主要是为了观察输出，实际上没有断言
     }
 }

@@ -10,7 +10,7 @@ use crate::{
     with_env_sub::WithEnvCore,
     NODE_CNT, NODE_LEFT_MEM_THRESHOLD, NODE_SCORE_CPU_WEIGHT, NODE_SCORE_MEM_WEIGHT,
 };
-use std::borrow::Borrow;
+
 use std::ptr::NonNull;
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -65,7 +65,10 @@ pub struct Node {
     pub frame_run_count: usize,
 
     //缓存置换策略
-    instance_cache_policy: RefCell<Box<dyn InstanceCachePolicy<FnId>>>,
+    pub instance_cache_policy: RefCell<Box<dyn InstanceCachePolicy<FnId>>>,
+
+    pub get_cache_count: usize,
+    pub hit_cache_count: usize,
 }
 
 impl Clone for Node {
@@ -83,6 +86,8 @@ impl Clone for Node {
 
             // never used, clone is for SimEnvObserve
             instance_cache_policy: RefCell::new(Box::new(NoEvict::new())),
+            get_cache_count: self.get_cache_count,
+            hit_cache_count: self.hit_cache_count,
         }
     }
 }
@@ -97,13 +102,13 @@ impl Node {
     pub fn unready_mem(&self) -> f32 {
         *self.mem.borrow()
     }
-    fn new(node_id: NodeId, env: &SimEnv) -> Self {
+    fn new(node_id: NodeId, config: &Config) -> Self {
         Self {
             node_id,
             rsc_limit: NodeRscLimit {
-                // cpu: 1000.0,
-                cpu: 200.0,
-                mem: 8000.0,
+                cpu: 30000.0,
+                // cpu: 200.0,
+                mem: 10000.0,
             },
             fn_containers: HashMap::new().into(),
             cpu: 0.0,
@@ -112,15 +117,9 @@ impl Node {
             frame_run_count: 0,
             pending_tasks: BTreeSet::new().into(),
             last_frame_mem: 0.0,
-            instance_cache_policy: RefCell::new(
-                env.help()
-                    .config()
-                    .mech
-                    .new_instance_cache_policy(
-                        // node_id, 
-                        // env.into()
-                    ),
-            ),
+            instance_cache_policy: RefCell::new(config.mech.new_instance_cache_policy()),
+            get_cache_count: 0,
+            hit_cache_count: 0,
         }
     }
 
@@ -260,9 +259,12 @@ impl Node {
         //     self.func(fn_id).cold_start_container_mem_use;
     }
 
-    pub fn try_load_container(&self, fnid: FnId, env: &SimEnv) {
+    pub fn try_load_container(&mut self, fnid: FnId, env: &SimEnv) {
+        self.get_cache_count += 1;
+
         if self.container(fnid).is_some() {
             // log::info!("已经添加了{}", fnid);
+            self.hit_cache_count += 1;
             return;
         }
 
@@ -278,6 +280,10 @@ impl Node {
                     }
                     node.container(*to_replace).unwrap().is_idle()
                 }),
+                env,
+                env.func(fnid).cold_start_time,
+                env.func(fnid).cold_start_container_cpu_use,
+                env.func(fnid).cold_start_container_mem_use,
             );
             log::info!("old{:?}", old);
             (old, flag)
@@ -320,17 +326,85 @@ impl Node {
             }
         }
     }
+
+    pub fn pre_load_container(&mut self, fnid: FnId, env: &SimEnv) {
+        if self.container(fnid).is_some() {
+            // log::info!("已经添加了{}", fnid);
+            return;
+        }
+
+        let (old, flag) = unsafe {
+            let node = NonNull::new_unchecked(self as *const Node as *mut Node);
+            let (old, flag) = self.instance_cache_policy.borrow_mut().put(
+                fnid,
+                Box::new(move |to_replace| {
+                    let node = node.as_ref();
+                    // log::info!("节点{}要移除的容器{}", node.node_id, to_replace);
+                    for (_k, v) in node.fn_containers.borrow().iter() {
+                        // log::info!("{}", v.fn_id);
+                    }
+                    node.container(*to_replace).unwrap().is_idle()
+                }),
+                env,
+                env.func(fnid).cold_start_time,
+                env.func(fnid).cold_start_container_cpu_use,
+                env.func(fnid).cold_start_container_mem_use,
+            );
+            log::info!("old{:?}", old);
+            (old, flag)
+        };
+
+        // 可以增加该容器
+        if flag {
+            // 1. 将old unload掉
+            if old.is_some() {
+                self.try_unload_container(old.unwrap(), env, false);
+                log::info!("节点{}移除容器{}", self.node_id, old.unwrap());
+            }
+            // 2. load 当前fnid
+            // try cold start
+            // 首先从cache中寻找可用容器
+            if self.mem_enough_for_container(&env.func(fnid)) {
+                let fncon = FnContainer::new(fnid, self.node_id(), env);
+                let con_mem_take = fncon.mem_take(env);
+                self.fn_containers.borrow_mut().insert(fnid, fncon);
+                let node_id = self.node_id();
+                env.core
+                    .fn_2_nodes_mut()
+                    .entry(fnid)
+                    .and_modify(|v| {
+                        v.insert(node_id);
+                    })
+                    .or_insert_with(|| {
+                        let mut set: HashSet<usize> = HashSet::new();
+                        set.insert(node_id);
+                        set
+                    });
+
+                // will recalc next frame begin
+                // but we need to add mem to node in this frame because it's new container
+                *self.mem.borrow_mut() += con_mem_take;
+            } else {
+                log::info!("内存不够，取消缓存标记{}", fnid);
+                let mut node_cache = self.instance_cache_policy.borrow_mut();
+                assert!(node_cache.remove_all(&fnid));
+            }
+        }
+    }
+
     // 尝试加载节点上所有待处理任务的容器
     // 如果内存足够且容器不存在，则创建新容器，将任务状态添加到容器，并从待处理任务集合中移除
-    pub fn load_container(&self, env: &SimEnv) {
+    pub fn load_container(&mut self, env: &SimEnv) {
         // 用于存储已移除的待处理任务
         let mut removed_pending = vec![];
 
-        //let mut tasks = self.pending_tasks.borrow_mut().clone();
+        let tasks = self.pending_tasks.borrow_mut().clone();
 
         // 遍历该节点上的所有待处理任务
-        for &(req_id, fnid) in self.pending_tasks.borrow_mut().iter() {
+        // for &(req_id, fnid) in self.pending_tasks.borrow_mut().iter() {
+        for &(req_id, fnid) in tasks.iter() {
             // 尝试加载函数容器
+
             self.try_load_container(fnid, env);
 
             if let Some(mut fncon) = self.container_mut(fnid) {
@@ -342,7 +416,7 @@ impl Node {
 
                 self.instance_cache_policy
                     .borrow_mut()
-                    .get(fnid, fncon.borrow().last_frame_mem)
+                    .get(fnid, &fncon, env)
                     .unwrap();
                 // add to container
 
@@ -368,7 +442,7 @@ impl SimEnv {
     pub fn node_init_node_graph(&self) {
         // 初始化一个节点
         fn _init_one_node(env: &SimEnv, node_id: NodeId) {
-            let node = Node::new(node_id, env);
+            let node = Node::new(node_id, env.help().config());
 
             // let node_i = nodecnt;
             env.core.nodes_mut().push(node);
