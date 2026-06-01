@@ -3,6 +3,7 @@ mod algos;
 mod apis;
 mod cache;
 mod config;
+mod consistency;
 mod env_gc;
 mod fn_dag;
 mod mechanism;

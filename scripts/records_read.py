@@ -15,6 +15,7 @@ def conf_str(conf):
     cold_start = conf['cold_start']
     fn_type= conf['fn_type']
     no_mech_latency=conf['no_mech_latency']
+    consistency_level=conf.get('consistency_level','eventual')
 
     def mech_part_conf(mech):
         objmap=conf['mech'][mech]
@@ -42,8 +43,8 @@ def conf_str(conf):
 
     instance_cache_policy=mech_part_conf('instance_cache_policy')
 
-    return "sd{}.rf{}.dt{}.cs{}.ft{}.nml{}.mt{}.scl({}.{})({}.{})({}.{})[{}].scd({}.{}).ic({}.{})".\
-        format(rand_seed,request_freq,dag_type,cold_start,fn_type,1 if no_mech_latency else 0,mech_type[0],\
+    return "sd{}.rf{}.dt{}.cs{}.ft{}.nml{}.cl{}.mt{}.scl({}.{})({}.{})({}.{})[{}].scd({}.{}).ic({}.{})".\
+        format(rand_seed,request_freq,dag_type,cold_start,fn_type,1 if no_mech_latency else 0,consistency_level,mech_type[0],\
                scale_num[0],scale_num[1],\
                scale_down_exec[0],scale_down_exec[1],\
                scale_up_exec[0],scale_up_exec[1],\
@@ -98,6 +99,7 @@ class FlattenConfig:
     instance_cache_policy=""
     filter=""
     no_mech_latency=""
+    consistency_level=""
 
     def __init__(self, configstr):
         self.configstr = configstr
@@ -114,6 +116,7 @@ class FlattenConfig:
             (r'\.cs(\w+)\.', 'cold_start'),
             (r'\.ft(\w+)\.', 'fn_type'),
             (r'\.nml(\w+)\.', 'no_mech_latency'),
+            (r'\.cl(\w+)\.', 'consistency_level'),
             (r'\.scl\(([^)]+)\)\(([^)]+)\)\(([^)]+)\)\[(.*?)\].', 'scale_num', 'scale_down_exec', 'scale_up_exec','filter'),
             (r'\.scd\(([^)]+)\)', 'sche'),
             (r'\.ic\(([^)]+)\)', 'instance_cache_policy')
@@ -142,7 +145,8 @@ class FlattenConfig:
             'sche': self.sche,
             'instance_cache_policy': self.instance_cache_policy,
             'filter': self.filter,
-            'no_mech_latency': self.no_mech_latency
+            'no_mech_latency': self.no_mech_latency,
+            'consistency_level': self.consistency_level
         }
     # def print_attributes(self):
     #     attributes = [
@@ -176,6 +180,13 @@ class PackedRecord:
     fn_container_cnt=0.0
     cache_hit_ratio_per_node=0.0
     undone_req_cnt=0.0
+    req_done_time_avg_99p=0.0       # P99 尾延迟
+    l1_cache_hit_ratio=0.0          # L1 容器缓存命中率
+    consistency_error_rate=0.0      # 一致性错误率
+    max_inconsistency_window=0.0    # 最大不一致窗口
+    consistency_overhead=0.0        # 一致性机制延迟开销
+    
+    consistency_level=""            # 一致性级别
     
     rand_seed=""
     request_freq=""
@@ -238,6 +249,16 @@ class Frame:
         return self.frame[self.idxs['FRAME_IDX_FNCONTAINER_COUNT']]
     def node_cache_hit_ratio(self):
         return self.frame[self.idxs['FRAME_IDX_CACHE_HIT_RATIO']]
+    def req_done_time_avg_99p(self):
+        return self.frame[self.idxs['FRAME_IDX_REQ_DONE_TIME_AVG_99P']]
+    def l1_cache_hit_ratio(self):
+        return self.frame[self.idxs['FRAME_IDX_L1_HIT_RATIO']]
+    def consistency_error_rate(self):
+        return self.frame[self.idxs['FRAME_IDX_CONSISTENCY_ERROR_RATE']]
+    def max_inconsistency_window(self):
+        return self.frame[self.idxs['FRAME_IDX_MAX_INCONSISTENCY_WINDOW']]
+    def consistency_overhead(self):
+        return self.frame[self.idxs['FRAME_IDX_CONSISTENCY_OVERHEAD']]
     
 
 def load_record_from_file(filename):
@@ -265,6 +286,11 @@ def load_record_from_file(filename):
         record.fn_container_cnt = cacherecord['fn_container_cnt']
         record.cache_hit_ratio_per_node = cacherecord['cache_hit_ratio_per_node']
         record.undone_req_cnt = cacherecord['undone_req_cnt']
+        record.req_done_time_avg_99p = cacherecord.get('req_done_time_avg_99p', 0.0)
+        record.l1_cache_hit_ratio = cacherecord.get('l1_cache_hit_ratio', 0.0)
+        record.consistency_error_rate = cacherecord.get('consistency_error_rate', 0.0)
+        record.max_inconsistency_window = cacherecord.get('max_inconsistency_window', 0.0)
+        record.consistency_overhead = cacherecord.get('consistency_overhead', 0.0)
     else:
         # seek to filesize - 1000 
         # read lines
@@ -294,8 +320,11 @@ def load_record_from_file(filename):
             record.fn_container_cnt = total_container_count/frame.frame_cnt()
             record.cache_hit_ratio_per_node = frame.node_cache_hit_ratio()
             record.undone_req_cnt = len(frame.running_reqs())
-
-            # save cache
+            record.req_done_time_avg_99p = frame.req_done_time_avg_99p()
+            record.l1_cache_hit_ratio = frame.l1_cache_hit_ratio()
+            record.consistency_error_rate = frame.consistency_error_rate()
+            record.max_inconsistency_window = frame.max_inconsistency_window()
+            record.consistency_overhead = frame.consistency_overhead()
             os.makedirs("cache", exist_ok=True)
             with open(cache_filename, 'w') as f:
                 json.dump({
@@ -309,7 +338,12 @@ def load_record_from_file(filename):
                     'exe_time_per_req': record.exe_time_per_req,
                     'fn_container_cnt': record.fn_container_cnt,
                     'cache_hit_ratio_per_node': record.cache_hit_ratio_per_node,
-                    'undone_req_cnt': record.undone_req_cnt
+                    'undone_req_cnt': record.undone_req_cnt,
+                    'req_done_time_avg_99p': record.req_done_time_avg_99p,
+                    'l1_cache_hit_ratio': record.l1_cache_hit_ratio,
+                    'consistency_error_rate': record.consistency_error_rate,
+                    'max_inconsistency_window': record.max_inconsistency_window,
+                    'consistency_overhead': record.consistency_overhead
                 },f)
 
     config=FlattenConfig(record.configstr)
@@ -325,6 +359,7 @@ def load_record_from_file(filename):
     record.instance_cache_policy=config.instance_cache_policy
     record.filter=config.filter
     record.no_mech_latency=config.no_mech_latency
+    record.consistency_level=config.consistency_level
     return record
     
         
@@ -346,6 +381,11 @@ def avg_records(records):
     fn_container_cnt=0.0
     cache_hit_ratio_per_node=0.0
     undone_req_cnt=0.0
+    req_done_time_avg_99p=0.0
+    l1_cache_hit_ratio=0.0
+    consistency_error_rate=0.0
+    max_inconsistency_window=0.0
+    consistency_overhead=0.0
     for record in records:
         cost_per_req+=record.cost_per_req
         time_per_req+=record.time_per_req
@@ -358,6 +398,11 @@ def avg_records(records):
         fn_container_cnt+=record.fn_container_cnt
         cache_hit_ratio_per_node+=record.cache_hit_ratio_per_node
         undone_req_cnt+=record.undone_req_cnt
+        req_done_time_avg_99p+=record.req_done_time_avg_99p
+        l1_cache_hit_ratio+=record.l1_cache_hit_ratio
+        consistency_error_rate+=record.consistency_error_rate
+        max_inconsistency_window+=record.max_inconsistency_window
+        consistency_overhead+=record.consistency_overhead
     cost_per_req/=len(records)
     time_per_req/=len(records)
     score/=len(records)
@@ -369,6 +414,11 @@ def avg_records(records):
     fn_container_cnt/=len(records)
     cache_hit_ratio_per_node/=len(records)
     undone_req_cnt/=len(records)
+    req_done_time_avg_99p/=len(records)
+    l1_cache_hit_ratio/=len(records)
+    consistency_error_rate/=len(records)
+    max_inconsistency_window/=len(records)
+    consistency_overhead/=len(records)
 
     # copyback 2 first
     records[0].cost_per_req=cost_per_req
@@ -382,6 +432,11 @@ def avg_records(records):
     records[0].fn_container_cnt=fn_container_cnt
     records[0].cache_hit_ratio_per_node=cache_hit_ratio_per_node
     records[0].undone_req_cnt=undone_req_cnt
+    records[0].req_done_time_avg_99p=req_done_time_avg_99p
+    records[0].l1_cache_hit_ratio=l1_cache_hit_ratio
+    records[0].consistency_error_rate=consistency_error_rate
+    records[0].max_inconsistency_window=max_inconsistency_window
+    records[0].consistency_overhead=consistency_overhead
     return records[0]
 
         # lines = f.readlines()

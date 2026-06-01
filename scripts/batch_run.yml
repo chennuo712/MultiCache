@@ -12,6 +12,10 @@ params:
   no_mech_latency:
   - true:
   # - false:
+  consistency_level:
+  # - strong:
+  # - monotonic_read:
+  - eventual:
 
 mech_scale_sche:
   # scale_sche_joint:

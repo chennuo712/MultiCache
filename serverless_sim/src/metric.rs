@@ -278,7 +278,15 @@ const FRAME_IDX_ALGO_EXE_TIME: usize = 13; // 算法执行时间
 const FRAME_IDX_FNCONTAINER_COUNT: usize = 14; // 总的容器数量
 const FRAME_IDX_CACHE_HIT_RATIO: usize = 15; //系统所有节点的平均缓存命中率
                                              // the last + 1
-const FRAME_LEN: usize = 16;
+const FRAME_IDX_L2_HIT_RATIO: usize = 16; // L2 快照缓存命中率
+const FRAME_IDX_L3_HIT_RATIO: usize = 17; // L3 数据缓存命中率
+const FRAME_IDX_OVERALL_HIT_RATIO: usize = 18; // 三级缓存整体命中率
+const FRAME_IDX_REQ_DONE_TIME_AVG_99P: usize = 19; // 请求的99%完成时间 (P99尾延迟)
+const FRAME_IDX_L1_HIT_RATIO: usize = 20; // L1 容器缓存命中率
+const FRAME_IDX_CONSISTENCY_ERROR_RATE: usize = 21; // 一致性错误率
+const FRAME_IDX_MAX_INCONSISTENCY_WINDOW: usize = 22; // 最大不一致窗口（帧数）
+const FRAME_IDX_CONSISTENCY_OVERHEAD: usize = 23; // 一致性机制带来的额外开销（帧数）
+const FRAME_LEN: usize = 24;
 
 impl Recorder {
     pub fn new(mut key: String) -> Self {
@@ -353,6 +361,7 @@ impl Recorder {
         frame[FRAME_IDX_REQ_DONE_TIME_AVG] = sim_env.req_done_time_avg().into();
         frame[FRAME_IDX_REQ_DONE_TIME_STD] = sim_env.req_done_time_std().into();
         frame[FRAME_IDX_REQ_DONE_TIME_AVG_90P] = sim_env.req_done_time_avg_90p().into();
+        frame[FRAME_IDX_REQ_DONE_TIME_AVG_99P] = sim_env.req_done_time_avg_99p().into();
         frame[FRAME_IDX_COST] = sim_env.cost_each_req().into();
         frame[FRAME_IDX_SCORE] = sim_env.score().into();
         frame[FRAME_IDX_DONE_REQ_COUNT] = sim_env.help.metric().done_request_count.into();
@@ -369,6 +378,52 @@ impl Recorder {
             .sum::<usize>()
             .into();
         frame[FRAME_IDX_CACHE_HIT_RATIO] = sim_env.cache_hit_ratio_avg().into();
+
+        // 多级缓存指标
+        {
+            let nodes = sim_env.core.nodes();
+            let mut l1_hit_sum = 0.0f64;
+            let mut l2_hit_sum = 0.0f64;
+            let mut l3_hit_sum = 0.0f64;
+            let mut overall_hit_sum = 0.0f64;
+            let mut node_cnt = 0usize;
+            for n in nodes.iter() {
+                let cache_ref = n.multi_level_cache.borrow();
+                let stats = cache_ref.stats();
+                l1_hit_sum += stats.l1_hit_rate();
+                l2_hit_sum += stats.l2_hit_rate();
+                l3_hit_sum += stats.l3_hit_rate();
+                overall_hit_sum += stats.overall_hit_rate();
+                node_cnt += 1;
+            }
+            if node_cnt > 0 {
+                frame[FRAME_IDX_L1_HIT_RATIO] = (l1_hit_sum / node_cnt as f64).into();
+                frame[FRAME_IDX_L2_HIT_RATIO] = (l2_hit_sum / node_cnt as f64).into();
+                frame[FRAME_IDX_L3_HIT_RATIO] = (l3_hit_sum / node_cnt as f64).into();
+                frame[FRAME_IDX_OVERALL_HIT_RATIO] = (overall_hit_sum / node_cnt as f64).into();
+            } else {
+                frame[FRAME_IDX_L1_HIT_RATIO] = 0.0.into();
+                frame[FRAME_IDX_L2_HIT_RATIO] = 0.0.into();
+                frame[FRAME_IDX_L3_HIT_RATIO] = 0.0.into();
+                frame[FRAME_IDX_OVERALL_HIT_RATIO] = 0.0.into();
+            }
+        }
+
+        // 一致性控制指标
+        {
+            if let Some(cm) = sim_env.consistency_manager.borrow().as_ref() {
+                let stats = cm.stats();
+                let total_access = (stats.consistency_error_count + stats.processed_invalidations).max(1);
+                frame[FRAME_IDX_CONSISTENCY_ERROR_RATE] = (stats.consistency_error_count as f64 / total_access as f64).into();
+                frame[FRAME_IDX_MAX_INCONSISTENCY_WINDOW] = stats.max_observed_inconsistency.into();
+                let overhead = sim_env.help.avg_algo_exc_time();
+                frame[FRAME_IDX_CONSISTENCY_OVERHEAD] = overhead.into();
+            } else {
+                frame[FRAME_IDX_CONSISTENCY_ERROR_RATE] = 0.0.into();
+                frame[FRAME_IDX_MAX_INCONSISTENCY_WINDOW] = 0.0.into();
+                frame[FRAME_IDX_CONSISTENCY_OVERHEAD] = 0.0.into();
+            }
+        }
 
         self.file
             .borrow_mut()
@@ -443,6 +498,8 @@ impl RecordFile {
             no_log: false,
 
             mech: ModuleMechConf::new().0,
+            cache_config: None,
+            consistency: None,
             total_frame: 1000,
         };
 

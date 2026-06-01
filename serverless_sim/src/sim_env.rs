@@ -13,6 +13,10 @@ use rand_seeder::Seeder;
 use crate::{
     actions::ESActionWrapper,
     config::Config,
+    consistency::{
+        invalidation::{ConsistencyLevel, NodeCacheState},
+        ConsistencyConfig, ConsistencyManager,
+    },
     fn_dag::{DagId, FnDAG, FnId, Func},
     mechanism::ConfigNewMec,
     mechanism_thread::{self, MechScheduleOnce},
@@ -293,6 +297,7 @@ pub struct SimEnv {
     pub core: SimEnvCoreState,
     // pub mechanisms: SimEnvMechanisms,
     // pub new_mech: MechanismImpl,
+    pub consistency_manager: RefCell<Option<ConsistencyManager>>,
     pub master_mech_not_running: bool,
     pub mech_caller: mpsc::Sender<MechScheduleOnce>,
 }
@@ -318,6 +323,20 @@ impl SimEnv {
                 algo_exc_time: RefCell::new(HashMap::new()),
                 dag_accumulate_call_frequency: RefCell::new(BTreeMap::new()),
             },
+            consistency_manager: RefCell::new(config.consistency.as_ref().map(|cc| {
+                let level = match cc.level.as_str() {
+                    "strong" => ConsistencyLevel::Strong,
+                    "monotonic_read" => ConsistencyLevel::MonotonicRead,
+                    _ => ConsistencyLevel::Eventual,
+                };
+                ConsistencyManager::new(ConsistencyConfig {
+                    level,
+                    update_interval: cc.update_interval,
+                    max_inconsistency_window: cc.max_inconsistency_window,
+                    propagation_delay: cc.propagation_delay,
+                    enabled: cc.enabled,
+                })
+            })),
             core: SimEnvCoreState {
                 node2node_graph: RefCell::new(Vec::new()),
                 dags: RefCell::new(Vec::new()),
@@ -467,6 +486,12 @@ impl SimEnv {
             //     n.rsc_limit.mem
             // );
         }
+
+        // ---- 帧开始时触发协同驱逐 ----
+        for n in self.core.nodes().iter() {
+            n.multi_level_cache.borrow_mut().cooperative_evict(self);
+        }
+
         // metric，将这一帧已完成的请求数清空
         self.help.metric.borrow_mut().on_frame_begin();
 
@@ -508,6 +533,56 @@ impl SimEnv {
             .as_mut()
             .unwrap()
             .add_frame(self);
+
+        // ---- 帧末一致性处理 ----
+        if let Some(cm) = self.consistency_manager.borrow_mut().as_mut() {
+            if cm.config().enabled {
+                // 收集所有函数 ID
+                let all_fn_ids: Vec<FnId> = self.core.fns().iter().map(|f| f.fn_id).collect();
+
+                // 收集各节点的缓存状态（L2/L3 中缓存的函数）
+                let nodes = self.core.nodes();
+                let node_cache_states: Vec<NodeCacheState> = nodes
+                    .iter()
+                    .map(|n| {
+                        let ml_cache = n.multi_level_cache.borrow();
+                        let mut cached_fns = std::collections::HashMap::new();
+                        // 从 L2 快照缓存收集
+                        for fn_id in ml_cache.l2_snapshot().get_all_fn_ids() {
+                            cached_fns.insert(fn_id, 0u64); // 版本号由 CM 管理
+                        }
+                        NodeCacheState {
+                            node_id: n.node_id(),
+                            cached_fns,
+                        }
+                    })
+                    .collect();
+                drop(nodes);
+
+                let current_frame = self.current_frame();
+                let mut rng_count = 0u64;
+                let notices = cm.on_frame_end(
+                    current_frame,
+                    &all_fn_ids,
+                    &node_cache_states,
+                    || {
+                        rng_count += 1;
+                        // 简单确定性随机
+                        ((rng_count * 6364136223846793005 + 1442695040888963407) % 100) as f64
+                            / 100.0
+                    },
+                );
+
+                // 执行失效操作：清理各节点上过期的缓存项
+                for notice in &notices {
+                    for n in self.core.nodes_mut().iter_mut() {
+                        n.multi_level_cache
+                            .borrow_mut()
+                            .invalidate_fn(&notice.fn_id, notice.new_version);
+                    }
+                }
+            }
+        }
 
         // 自增 frame
         let mut cur_frame = self.core.current_frame.borrow_mut();

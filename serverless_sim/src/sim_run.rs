@@ -4,7 +4,6 @@ use std::{
 };
 
 use crate::{
-    cache::InstanceCachePolicy,
     fn_dag::{EnvFnExt, FnContainer, FnContainerState, FnId},
     mechanism::{MechanismImpl, SimEnvObserve},
     mechanism_thread::MechCmdDistributor,
@@ -321,7 +320,7 @@ impl SimEnv {
         fc: &mut FnContainer,
         cpu_for_one_task: f32,
         req_fns_2_run: &BTreeSet<(ReqId, FnId)>,
-    ) {
+    ) -> usize {
         let mut done_reqs = vec![];
         let mut calc_cnt = 0;
 
@@ -362,6 +361,7 @@ impl SimEnv {
         }
 
         fc.record_this_frame(self, done_reqs.len(), fc.req_fn_state.len());
+        let done_count = done_reqs.len();
         for reqid in done_reqs {
             fc.req_fn_state.remove(&reqid).unwrap();
             let mut req = self.request_mut(reqid);
@@ -372,6 +372,7 @@ impl SimEnv {
                 self.on_request_done(reqid);
             }
         }
+        done_count
     }
 
     fn sim_compute_collect_compute_data(
@@ -449,13 +450,27 @@ impl SimEnv {
                 }
                 for (fnid, fc) in n.fn_containers.borrow_mut().iter_mut() {
                     match fc.state_mut() {
-                        FnContainerState::Running => self.sim_compute_container_running(
-                            *fnid,
-                            &mut n.cpu,
-                            fc,
-                            cpu_for_one_task,
-                            &req_fns_2_run,
-                        ),
+                        FnContainerState::Running => {
+                            let done_count = self.sim_compute_container_running(
+                                *fnid,
+                                &mut n.cpu,
+                                fc,
+                                cpu_for_one_task,
+                                &req_fns_2_run,
+                            );
+                            // 函数执行完成后触发缓存准入
+                            if done_count > 0 {
+                                let version = self
+                                    .consistency_manager
+                                    .borrow()
+                                    .as_ref()
+                                    .map(|cm| cm.version_manager.get_version(*fnid))
+                                    .unwrap_or(0);
+                                n.multi_level_cache
+                                    .borrow_mut()
+                                    .on_fn_executed(*fnid, self, version);
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -465,13 +480,26 @@ impl SimEnv {
                         FnContainerState::Starting { .. } => {
                             panic!("should not be starting");
                         }
-                        FnContainerState::Running => self.sim_compute_container_running(
-                            *fnid,
-                            &mut n.cpu,
-                            fc,
-                            0.0,
-                            &BTreeSet::new(),
-                        ),
+                        FnContainerState::Running => {
+                            let done_count = self.sim_compute_container_running(
+                                *fnid,
+                                &mut n.cpu,
+                                fc,
+                                0.0,
+                                &BTreeSet::new(),
+                            );
+                            if done_count > 0 {
+                                let version = self
+                                    .consistency_manager
+                                    .borrow()
+                                    .as_ref()
+                                    .map(|cm| cm.version_manager.get_version(*fnid))
+                                    .unwrap_or(0);
+                                n.multi_level_cache
+                                    .borrow_mut()
+                                    .on_fn_executed(*fnid, self, version);
+                            }
+                        }
                     }
                 }
             }

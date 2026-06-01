@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cache::InstanceCachePolicy,
+    config::CacheConfig,
     fn_dag::FnId,
     mechanism::{
         FILTER_NAMES, INSTANCE_LIVE_NAMES, MECH_NAMES, SCALE_DOWN_EXEC_NAMES, SCALE_NUM_NAMES,
@@ -283,8 +284,29 @@ impl MechConfig {
                 Box::new(crate::cache::faascache::FaasCache::new(limit))
             }
             "no_evict" => Box::new(crate::cache::no_evict::NoEvict::new()),
-            _ => panic!("new_instance_cache_policy"),
+            _ => panic!("new_instance_cache_policy: unknown policy {}", policy),
         }
+    }
+
+    /// 创建多级缓存实例
+    ///
+    /// 使用 instance_cache_policy 配置创建 L1 子策略，
+    /// 并使用 cache_config 配置 L2/L3 容量比例。
+    pub fn new_multi_level_cache(
+        &self,
+        cache_config: &Option<CacheConfig>,
+    ) -> crate::cache::MultiLevelCache {
+        use crate::cache::{CapacityConfig, MultiLevelCache, ValueScorerConfig};
+
+        let l1_policy = self.new_instance_cache_policy();
+        let cfg = cache_config.clone().unwrap_or(CacheConfig::default());
+        let capacity_cfg = CapacityConfig {
+            l1_ratio: cfg.l1_ratio,
+            l2_ratio: cfg.l2_ratio,
+            l3_ratio: cfg.l3_ratio,
+            demote_threshold_ratio: 0.3,
+        };
+        MultiLevelCache::new(l1_policy, cfg.l1_capacity, capacity_cfg, ValueScorerConfig::default())
     }
 
     pub fn instance_cache_policy_conf(&self) -> (String, String) {

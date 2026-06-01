@@ -2,6 +2,57 @@ use serde::{Deserialize, Serialize};
 
 use crate::mechanism_conf::MechConfig;
 
+/// 多级缓存配置
+#[derive(Serialize, Deserialize, Clone)]
+pub struct CacheConfig {
+    /// L1 容器缓存比例（默认 0.60）
+    pub l1_ratio: f64,
+    /// L2 快照缓存比例（默认 0.30）
+    pub l2_ratio: f64,
+    /// L3 数据缓存比例（默认 0.10）
+    pub l3_ratio: f64,
+    /// L1 缓存容量（条目数）
+    pub l1_capacity: usize,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            l1_ratio: 0.60,
+            l2_ratio: 0.30,
+            l3_ratio: 0.10,
+            l1_capacity: 100,
+        }
+    }
+}
+
+/// 一致性控制配置
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ConsistencyConf {
+    /// 一致性级别: "strong", "monotonic_read", "eventual"
+    pub level: String,
+    /// 源端更新间隔（帧数）
+    pub update_interval: usize,
+    /// 最大不一致窗口（帧数）
+    pub max_inconsistency_window: usize,
+    /// 失效传播延迟（帧数）
+    pub propagation_delay: usize,
+    /// 是否启用
+    pub enabled: bool,
+}
+
+impl Default for ConsistencyConf {
+    fn default() -> Self {
+        Self {
+            level: "eventual".to_string(),
+            update_interval: 10,
+            max_inconsistency_window: 5,
+            propagation_delay: 1,
+            enabled: true,
+        }
+    }
+}
+
 // 存储应用配置信息
 #[derive(Serialize, Deserialize, Clone)]
 pub struct APPConfig {
@@ -43,6 +94,10 @@ pub struct Config {
     pub no_mech_latency: bool,
     // pub app_types: Vec<APPConfig>,
     pub mech: MechConfig,
+    /// 多级缓存配置
+    pub cache_config: Option<CacheConfig>,
+    /// 一致性控制配置
+    pub consistency: Option<ConsistencyConf>,
     /// whether to log the resultz
     pub no_log: bool,
 }
@@ -57,6 +112,8 @@ impl Config {
             cold_start: "high".to_string(),
             fn_type: "cpu".to_string(),
             mech: MechConfig::new_test(),
+            cache_config: None,
+            consistency: None,
             no_mech_latency: true,
             no_log: true,
         }

@@ -156,6 +156,23 @@ impl SimEnv {
         req_done_times[0..req_done_90p_cnt].iter().sum::<f32>() / (req_done_90p_cnt as f32)
     }
 
+    /// req_done_99p 99%的请求处理完的时间 越低越好
+    pub fn req_done_time_avg_99p(&self) -> f32 {
+        let mut req_done_times = self
+            .core()
+            .done_requests()
+            .iter()
+            // .filter(|req| req.is_done(self))
+            .map(|req| (req.end_frame - req.begin_frame) as f32)
+            .collect::<Vec<f32>>();
+        req_done_times.sort_by(|a, b| a.partial_cmp(b).expect("can't cmp f32"));
+        let req_done_99p_cnt = req_done_times.len() * 99 / 100;
+        if req_done_99p_cnt == 0 {
+            return 0.0;
+        }
+        req_done_times[0..req_done_99p_cnt].iter().sum::<f32>() / (req_done_99p_cnt as f32)
+    }
+
     //所有节点平均的缓存命中率
     pub fn cache_hit_ratio_avg(&self) -> f32 {
         let mut sum = 0.0;

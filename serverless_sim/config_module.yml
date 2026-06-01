@@ -13,3 +13,18 @@ mechanism:
     fnche:
     pass:
     pos:
+
+# 多级缓存配置（可选）
+cache_config:
+  l1_ratio: 0.60          # L1容器缓存比例（默认0.60）
+  l2_ratio: 0.30          # L2快照缓存比例（默认0.30）
+  l3_ratio: 0.10          # L3数据缓存比例（默认0.10）
+  l1_capacity: 100        # L1缓存容量（条目数）
+
+# 一致性控制配置（可选）
+consistency:
+  level: eventual         # 一致性级别: strong / monotonic_read / eventual
+  update_interval: 10     # 源端更新间隔（帧数）
+  max_inconsistency_window: 5  # 最大不一致窗口（帧数）
+  propagation_delay: 1    # 失效传播延迟（帧数）
+  enabled: true           # 是否启用

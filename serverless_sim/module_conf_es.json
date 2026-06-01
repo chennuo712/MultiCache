@@ -1,69 +1,69 @@
 {
   "mech_type": {
     "no_scale": null,
-    "scale_sche_joint": null,
-    "scale_sche_separated": null
+    "scale_sche_separated": null,
+    "scale_sche_joint": null
   },
   "scale_num": {
-    "temp_scaler": null,
-    "no": null,
-    "ensure_scaler": null,
     "lass": null,
     "full_placement": null,
+    "temp_scaler": null,
+    "ensure_scaler": null,
     "rela": null,
+    "no": null,
     "hpa": null
   },
   "scale_down_exec": {
     "default": null
   },
   "scale_up_exec": {
-    "no": null,
-    "least_task": null
+    "least_task": null,
+    "no": null
   },
   "sche": {
     "consistenthash": null,
+    "ensure_scheduler": null,
+    "bp_balance": null,
+    "pass": null,
     "pos": null,
+    "load_least": null,
     "fnsche": null,
     "faasflow": null,
-    "ensure_scheduler": null,
-    "load_least": null,
-    "random": null,
     "greedy": null,
-    "bp_balance": null,
     "rotate": null,
     "hash": null,
-    "pass": null
+    "random": null
   },
   "filter": {
     "careful_down": null
   },
   "instance_cache_policy": {
     "contemp_4": null,
+    "arc": null,
+    "contemp_8": null,
+    "ttl": null,
+    "no_attenuation": null,
+    "contemp_01": null,
+    "contemp_1": null,
+    "ttl_new": null,
+    "contemp_2": null,
+    "no_cpu": null,
+    "cfc": null,
+    "fifo": null,
     "contemp_5": null,
     "contemp_6": null,
-    "no_freq": null,
-    "contemp_8": null,
     "duo": null,
-    "cfc": null,
-    "contemp_3": null,
-    "contemp_9": null,
-    "lru": null,
-    "ttl_new": null,
-    "contemp_99": null,
-    "arc": null,
-    "no_cst": null,
-    "faascache": null,
-    "contemp_1": null,
     "contemp_7": null,
-    "no_callcount": null,
-    "contemp": null,
+    "no_freq": null,
+    "contemp_9": null,
+    "contemp_3": null,
+    "contemp_99": null,
     "no_evict": null,
+    "contemp": null,
     "no_mem": null,
-    "fifo": null,
-    "no_cpu": null,
-    "contemp_01": null,
-    "no_attenuation": null,
-    "ttl": null,
-    "contemp_2": null
+    "lru": null,
+    "no_callcount": null,
+    "faascache": null,
+    "no_cst": null
   }
 }
