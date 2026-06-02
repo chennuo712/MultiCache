@@ -75,6 +75,14 @@ values:
 - {alias: Container Count, trans: fn_container_cnt}
 - {alias: Cold Start Latency, trans: coldstart_time_per_req}
 - {alias: Cache Hit Ratio, trans: cache_hit_ratio_per_node}
+- {alias: P99 Latency, trans: req_done_time_avg_99p}
+- {alias: L1 Cache Hit Ratio, trans: l1_cache_hit_ratio}
+- {alias: L2 Cache Hit Ratio, trans: l2_cache_hit_ratio}
+- {alias: L3 Cache Hit Ratio, trans: l3_cache_hit_ratio}
+- {alias: Overall Cache Hit Ratio, trans: overall_cache_hit_ratio}
+- {alias: Consistency Error Rate, trans: consistency_error_rate}
+- {alias: Max Inconsistency Window, trans: max_inconsistency_window}
+- {alias: Consistency Overhead, trans: consistency_overhead}
 """
 
 TMP=TMP.replace("{{targets_alias}}",targets_alias)

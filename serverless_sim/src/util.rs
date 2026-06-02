@@ -1,8 +1,7 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fmt::Debug,
-    mem::{size_of, zeroed},
-    ptr::{self, NonNull},
+    ptr::NonNull,
 };
 
 use crate::sim_env::SimEnv;

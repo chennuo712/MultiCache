@@ -22,8 +22,8 @@ impl<Payload: Eq + Hash + Clone + Debug + Send> InstanceCachePolicy<Payload> for
     fn get(
         &mut self,
         key: Payload,
-        fncon: &RefMut<'_, FnContainer>,
-        env: &SimEnv,
+        _fncon: &RefMut<'_, FnContainer>,
+        _env: &SimEnv,
     ) -> Option<Payload> {
         Some(key)
     }
@@ -31,11 +31,11 @@ impl<Payload: Eq + Hash + Clone + Debug + Send> InstanceCachePolicy<Payload> for
     fn put(
         &mut self,
         _key: Payload,
-        can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
-        env: &SimEnv,
-        cold_start_time: usize,
-        cold_start_cpu_use: f32,
-        cold_start_mem_use: f32,
+        _can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
+        _env: &SimEnv,
+        _cold_start_time: usize,
+        _cold_start_cpu_use: f32,
+        _cold_start_mem_use: f32,
     ) -> (Option<Payload>, bool) {
         (None, true)
     }
@@ -44,8 +44,8 @@ impl<Payload: Eq + Hash + Clone + Debug + Send> InstanceCachePolicy<Payload> for
         true
     }
 
-    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
-        let Vec = Vec::new();
-        Vec
+    fn check_if_prefetch(&mut self, _current_frame: u32, _env: &SimEnv) -> Vec<Payload> {
+        let v = Vec::new();
+        v
     }
 }

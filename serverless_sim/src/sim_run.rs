@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     vec,
 };
 
@@ -148,7 +148,7 @@ impl SimEnv {
             // 将容器在这一帧中的使用情况更新为 true
             container.this_frame_used = true;
 
-            let con_ptr = &*container as *const _;
+            let _con_ptr = &*container as *const _;
 
             // 得到该请求放进容器中执行时,这个请求一共需要接收多少数据,还差多少数据没处理完
             let mut one_path_done = false;

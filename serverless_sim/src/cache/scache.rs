@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::{cell::RefCell, cmp::Eq, fmt::Debug, hash::Hash, rc::Rc};
 
 use super::InstanceCachePolicy;
-use crate::fn_dag::{EnvFnExt, FnContainer};
+use crate::fn_dag::FnContainer;
 use crate::sim_env::SimEnv;
 
 // 双向链表节点
@@ -75,7 +75,7 @@ impl<Payload> ScacheListNode<Payload> {
         cold_start_time: usize,
         // cold_start_cpu_use: f32,
         cold_start_mem_use: f32,
-        env: &SimEnv,
+        _env: &SimEnv,
     ) -> f64 {
         // let cs_cpu_use = cold_start_cpu_use as f64;
         let cs_mem_use = cold_start_mem_use as f64;
@@ -106,11 +106,11 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for SCache
     fn get(
         &mut self,
         key: Payload,
-        fncon: &RefMut<'_, FnContainer>,
+        _fncon: &RefMut<'_, FnContainer>,
         env: &SimEnv,
     ) -> Option<Payload> {
-        let current_frame = env.current_frame() as u32;
-        if let Some(node) = self.cache.get(&key) {
+        let _current_frame = env.current_frame() as u32;
+        if let Some(_node) = self.cache.get(&key) {
             // let cs_cpu_use = env.func(fncon.fn_id.clone()).cold_start_container_cpu_use;
             // let cs_mem_use = env.func(fncon.fn_id.clone()).cold_start_container_mem_use;
             // let cold_start_time = env.func(fncon.fn_id.clone()).cold_start_time;
@@ -132,7 +132,7 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for SCache
         mut can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
         env: &SimEnv,
         cold_start_time: usize,
-        cold_start_cpu_use: f32,
+        _cold_start_cpu_use: f32,
         cold_start_mem_use: f32,
     ) -> (Option<Payload>, bool) {
         let current_frame = env.current_frame() as u32;
@@ -146,7 +146,7 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for SCache
         if self.cache.len() == self.capacity {
             let sorted_priority = self.get_sorted_priority();
             for k in 0..sorted_priority.len() {
-                if let Some((to_be_evict_priority, to_be_evict_conid)) = sorted_priority.get(k) {
+                if let Some((_to_be_evict_priority, to_be_evict_conid)) = sorted_priority.get(k) {
                     //如果最低温能被移除，即can_be_evict为true
                     if can_be_evict(&to_be_evict_conid.clone()) {
                         //移除温队列第k低温，包括删除节点 + 从缓存中移除
@@ -193,9 +193,9 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for SCache
         false
     }
 
-    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
-        let Vec = Vec::new();
-        Vec
+    fn check_if_prefetch(&mut self, _current_frame: u32, _env: &SimEnv) -> Vec<Payload> {
+        let v = Vec::new();
+        v
     }
 }
 

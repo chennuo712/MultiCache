@@ -52,7 +52,7 @@ impl ScaleUpExec for LeastTaskScaleUpExec {
             nodes_no_container.reverse();
             for _ in 0..to_scale_up_cnt {
                 let node_2_load_contaienr = nodes_no_container.pop().unwrap();
-                cmd_distributor.send(MechScheduleOnceRes::ScaleUpCmd(UpCmd {
+                let _ = cmd_distributor.send(MechScheduleOnceRes::ScaleUpCmd(UpCmd {
                     nid: node_2_load_contaienr,
                     fnid,
                 }));

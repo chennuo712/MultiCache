@@ -3,25 +3,39 @@ use serde::{Deserialize, Serialize};
 use crate::mechanism_conf::MechConfig;
 
 /// 多级缓存配置
+///
+/// 基于内存大小的缓存容量配置。
+/// 缓存总预算 = 节点内存 × cache_memory_ratio，
+/// 再按 l1/l2/l3_ratio 比例分配到各级。
+/// 各级条目数 = 级内存预算 ÷ 该级平均对象大小。
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CacheConfig {
-    /// L1 容器缓存比例（默认 0.60）
+    /// 缓存占节点总内存的比例（如 0.30 = 30%）
+    pub cache_memory_ratio: f64,
+    /// L1 容器缓存占总缓存预算的比例（默认 0.60）
     pub l1_ratio: f64,
     /// L2 快照缓存比例（默认 0.30）
     pub l2_ratio: f64,
-    /// L3 数据缓存比例（默认 0.10）
+    /// L3 结果缓存比例（默认 0.10）
     pub l3_ratio: f64,
-    /// L1 缓存容量（条目数）
-    pub l1_capacity: usize,
+    /// 函数容器内存大小范围 MB，创建函数时随机选取
+    pub container_mem_range_mb: [f32; 2],
+    /// 快照大小占其对应容器内存的比例（0~1）
+    pub snapshot_ratio: f32,
+    /// 函数执行结果数据大小范围 MB
+    pub result_data_range_mb: [f32; 2],
 }
 
 impl Default for CacheConfig {
     fn default() -> Self {
         Self {
+            cache_memory_ratio: 0.30,
             l1_ratio: 0.60,
             l2_ratio: 0.30,
             l3_ratio: 0.10,
-            l1_capacity: 100,
+            container_mem_range_mb: [100.0, 500.0],
+            snapshot_ratio: 0.60,
+            result_data_range_mb: [10.0, 50.0],
         }
     }
 }

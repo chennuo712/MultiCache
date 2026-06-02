@@ -11,11 +11,7 @@ use crate::{
     with_env_sub::WithEnvHelp,
 };
 
-use std::{
-    sync::mpsc::{self, Receiver},
-    thread::sleep,
-    time::Duration,
-};
+use std::sync::mpsc::{self, Receiver};
 
 impl SimEnv {
     fn one_frame(

@@ -1,5 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use crate::fn_dag::FnId;
+use super::version_manager::CacheLevel;
 
 /// 一致性级别
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,6 +32,8 @@ pub struct InvalidationNotice {
     pub old_version: u64,
     /// 新版本号
     pub new_version: u64,
+    /// 需要失效的缓存层级列表
+    pub cache_levels: Vec<CacheLevel>,
     /// 失效类型
     pub invalidation_type: InvalidationType,
     /// 传播的目标节点列表（None 表示广播）
@@ -113,6 +116,7 @@ impl InvalidationManager {
         fn_id: FnId,
         old_version: u64,
         new_version: u64,
+        cache_levels: Vec<CacheLevel>,
         current_frame: usize,
         node_cache_states: &[NodeCacheState],
     ) -> InvalidationNotice {
@@ -142,6 +146,7 @@ impl InvalidationManager {
             fn_id,
             old_version,
             new_version,
+            cache_levels,
             invalidation_type,
             target_nodes: target_nodes.clone(),
             issued_frame: current_frame,

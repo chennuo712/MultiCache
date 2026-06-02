@@ -1,12 +1,11 @@
 pub mod version_manager;
 pub mod invalidation;
 
-use std::collections::HashMap;
 
 use crate::fn_dag::FnId;
 use version_manager::VersionManager;
 use invalidation::{
-    ConsistencyLevel, ConsistencyStats, InvalidationManager, InvalidationNotice, NodeCacheState,
+    ConsistencyLevel, InvalidationManager, InvalidationNotice, NodeCacheState,
 };
 
 /// 一致性配置
@@ -114,10 +113,19 @@ impl ConsistencyManager {
 
         // Step 2: 版本变更时发布失效通知
         for change in &changes {
+            // 级联失效：确定需要失效的缓存层级
+            let cache_levels = self.version_manager.cascade_invalidate(
+                change.fn_id,
+                change.change_type,
+            );
+            if cache_levels.is_empty() {
+                continue;
+            }
             self.invalidation_manager.issue_invalidation(
                 change.fn_id,
                 change.old_version,
                 change.new_version,
+                cache_levels,
                 current_frame,
                 node_cache_states,
             );

@@ -20,12 +20,12 @@ use crate::{
     fn_dag::{DagId, FnDAG, FnId, Func},
     mechanism::ConfigNewMec,
     mechanism_thread::{self, MechScheduleOnce},
-    metric::{MechMetric, OneFrameMetric, Recorder, Records},
+    metric::{MechMetric, OneFrameMetric, Recorder},
     node::{Node, NodeId},
     request::{ReqId, Request},
     scale::{
         down_exec::DefaultScaleDownExec,
-        num::{no, ScaleNum},
+        num::ScaleNum,
         up_exec::ScaleUpExec,
     },
     sim_run::Scheduler,
@@ -549,7 +549,7 @@ impl SimEnv {
                         let mut cached_fns = std::collections::HashMap::new();
                         // 从 L2 快照缓存收集
                         for fn_id in ml_cache.l2_snapshot().get_all_fn_ids() {
-                            cached_fns.insert(fn_id, 0u64); // 版本号由 CM 管理
+                            cached_fns.insert(*fn_id, 0u64); // 版本号由 CM 管理
                         }
                         NodeCacheState {
                             node_id: n.node_id(),
@@ -578,7 +578,7 @@ impl SimEnv {
                     for n in self.core.nodes_mut().iter_mut() {
                         n.multi_level_cache
                             .borrow_mut()
-                            .invalidate_fn(&notice.fn_id, notice.new_version);
+                            .invalidate_fn(&notice.fn_id, notice.new_version, &notice.cache_levels);
                     }
                 }
             }

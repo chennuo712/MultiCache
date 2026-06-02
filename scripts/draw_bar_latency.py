@@ -309,6 +309,15 @@ def to_draw_meta(groups,conf):
                 fn_container_cnt=record.fn_container_cnt
                 cache_hit_ratio_per_node=record.cache_hit_ratio_per_node
                 undone_req_cnt=record.undone_req_cnt
+                req_done_time_avg_99p=record.req_done_time_avg_99p
+                l1_cache_hit_ratio=record.l1_cache_hit_ratio
+                l2_cache_hit_ratio=record.l2_cache_hit_ratio
+                l3_cache_hit_ratio=record.l3_cache_hit_ratio
+                overall_cache_hit_ratio=record.overall_cache_hit_ratio
+                consistency_error_rate=record.consistency_error_rate
+                max_inconsistency_window=record.max_inconsistency_window
+                consistency_overhead=record.consistency_overhead
+                consistency_level=record.consistency_level
                 # score=0.0
                 # rps=0.0
                 # record.

@@ -2,15 +2,12 @@ use std::sync::mpsc;
 
 use enum_as_inner::EnumAsInner;
 #[cfg(target_os = "windows")]
-use thread_priority::{set_current_thread_priority, ThreadPriority, WinAPIThreadPriority};
-#[cfg(target_os = "windows")]
-use windows::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_PRIORITY};
+use thread_priority::{set_current_thread_priority, ThreadPriority};
 
 use crate::actions::ESActionWrapper;
 use crate::mechanism::{DownCmd, Mechanism, MechanismImpl, ScheCmd, SimEnvObserve, UpCmd};
 
 use crate::util;
-use crate::with_env_sub::WithEnvHelp;
 
 pub type MechCmdDistributor = mpsc::Sender<MechScheduleOnceRes>;
 

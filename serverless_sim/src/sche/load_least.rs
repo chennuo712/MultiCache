@@ -1,10 +1,7 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
-    fn_dag::{EnvFnExt, FnId}, mechanism::{DownCmd, MechType, MechanismImpl, ScheCmd, SimEnvObserve}, mechanism_thread::{MechCmdDistributor, MechScheduleOnceRes}, node::{self, EnvNodeExt, Node, NodeId}, sche, sim_run::{schedule_helper, Scheduler}, with_env_sub::WithEnvCore
+    fn_dag::FnId, mechanism::{MechanismImpl, ScheCmd, SimEnvObserve}, mechanism_thread::{MechCmdDistributor, MechScheduleOnceRes}, node::{NodeId}, sim_run::{schedule_helper, Scheduler}, with_env_sub::WithEnvCore
 };
 
 pub struct LoadLeastScheduler {
@@ -49,7 +46,7 @@ impl Scheduler for LoadLeastScheduler {
     fn schedule_some(
         &mut self,
         env: &SimEnvObserve,
-        mech: &MechanismImpl,
+        _mech: &MechanismImpl,
         cmd_distributor: &MechCmdDistributor,) 
     {
         // 遍历每个节点，更新其资源使用情况

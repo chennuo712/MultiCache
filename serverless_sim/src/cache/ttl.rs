@@ -98,12 +98,12 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for TTLCac
     fn get(
         &mut self,
         key: Payload,
-        fncon: &RefMut<'_, FnContainer>,
+        _fncon: &RefMut<'_, FnContainer>,
         env: &SimEnv,
     ) -> Option<Payload> {
-        let current_frame = env.current_frame() as u32;
+        let _current_frame = env.current_frame() as u32;
 
-        if let Some(node) = self.cache.get(&key) {
+        if let Some(_node) = self.cache.get(&key) {
             // node.borrow_mut().update(current_frame, self.ttl_frames);
             return Some(key);
             //如果按ttl逻辑，get时删除过期项，则需要判断can_be_evict
@@ -120,9 +120,9 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for TTLCac
         key: Payload,
         mut can_be_evict: Box<dyn FnMut(&Payload) -> bool>,
         env: &SimEnv,
-        cold_start_time: usize,
-        cold_start_cpu_use: f32,
-        cold_start_mem_use: f32,
+        _cold_start_time: usize,
+        _cold_start_cpu_use: f32,
+        _cold_start_mem_use: f32,
     ) -> (Option<Payload>, bool) {
         let current_frame = env.current_frame() as u32;
 
@@ -185,8 +185,8 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for TTLCac
         false
     }
 
-    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
-        let Vec = Vec::new();
-        Vec
+    fn check_if_prefetch(&mut self, _current_frame: u32, _env: &SimEnv) -> Vec<Payload> {
+        let v = Vec::new();
+        v
     }
 }

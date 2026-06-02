@@ -10,7 +10,7 @@ use daggy::{
 use enum_as_inner::EnumAsInner;
 
 use crate::{
-    config::APPConfig,
+    config::{APPConfig, CacheConfig},
     mechanism::SimEnvObserve,
     node::{EnvNodeExt, NodeId},
     request::{ReqId, Request},
@@ -397,15 +397,39 @@ impl SimEnv {
         };
 
         // 创建一个Func实例并加入到core中
+
+        // 从配置获取容器内存范围，随机生成容器内存大小
+        let (container_mem_range, _snapshot_ratio) =
+            if let Some(ref cc) = self.help.config().cache_config {
+                (cc.container_mem_range_mb, cc.snapshot_ratio)
+            } else {
+                let default_cc = CacheConfig::default();
+                (default_cc.container_mem_range_mb, default_cc.snapshot_ratio)
+            };
+        let container_mem =
+            self.env_rand_f(container_mem_range[0], container_mem_range[1]);
+
+        // 冷启动时间与容器大小成正比：[30, 150] 帧
+        let min_cst = 30usize;
+        let max_cst = 150usize;
+        let ratio = if (container_mem_range[1] - container_mem_range[0]) > 0.0 {
+            (container_mem - container_mem_range[0])
+                / (container_mem_range[1] - container_mem_range[0])
+        } else {
+            0.5
+        };
+        let cold_start_time =
+            min_cst + (ratio * (max_cst - min_cst) as f32) as usize;
+
         self.core.fns_mut().push(Func {
             fn_id: id,
             cpu,
             mem: self.env_rand_f(100.0, 1000.0),
             out_put_size,
             nodes: HashSet::new(),
-            cold_start_container_mem_use: 100.0,
+            cold_start_container_mem_use: container_mem,
             cold_start_container_cpu_use: self.env_rand_f(0.1, 1.0),
-            cold_start_time: self.env_rand_i(50, 100),
+            cold_start_time,
             dag_id: 0,
             graph_i: (0).into(),
         });

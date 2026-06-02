@@ -1,13 +1,10 @@
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     fn_dag::{EnvFnExt, FnId},
-    mechanism::{DownCmd, MechType, MechanismImpl, ScheCmd, SimEnvObserve},
+    mechanism::{DownCmd, MechanismImpl, ScheCmd, SimEnvObserve},
     mechanism_thread::{MechCmdDistributor, MechScheduleOnceRes},
-    node::{self, EnvNodeExt, Node, NodeId},
+    node::{EnvNodeExt, NodeId},
     sim_run::{schedule_helper, Scheduler},
     with_env_sub::WithEnvCore,
 };

@@ -1,8 +1,8 @@
 use crate::cache::no_evict::NoEvict;
 use crate::cache::{
-    CapacityConfig, LoadDetail, LoadResult, MultiLevelCache, ValueScorerConfig,
+    LoadResult, MultiLevelCache, ValueScorerConfig,
 };
-use crate::config::Config;
+use crate::config::{CacheConfig, Config};
 use crate::with_env_sub::WithEnvHelp;
 use crate::{
     fn_dag::{EnvFnExt, FnContainer, FnContainerState, FnId, Func},
@@ -88,8 +88,8 @@ impl Clone for Node {
             // never used, clone is for SimEnvObserve
             multi_level_cache: RefCell::new(MultiLevelCache::new(
                 Box::new(NoEvict::new()),
-                10,
-                CapacityConfig::default(),
+                self.rsc_limit.mem,
+                &CacheConfig::default(),
                 ValueScorerConfig::default(),
             )),
             get_cache_count: self.get_cache_count,
@@ -109,12 +109,13 @@ impl Node {
         *self.mem.borrow()
     }
     fn new(node_id: NodeId, config: &Config) -> Self {
+        let node_memory_mb = 20000.0; // 节点总内存 20 GB
         Self {
             node_id,
             rsc_limit: NodeRscLimit {
                 cpu: 30000.0,
                 // cpu: 200.0,
-                mem: 10000.0,
+                mem: node_memory_mb,
             },
             fn_containers: HashMap::new().into(),
             cpu: 0.0,
@@ -123,7 +124,7 @@ impl Node {
             frame_run_count: 0,
             pending_tasks: BTreeSet::new().into(),
             last_frame_mem: 0.0,
-            multi_level_cache: RefCell::new(config.mech.new_multi_level_cache(&config.cache_config)),
+            multi_level_cache: RefCell::new(config.mech.new_multi_level_cache(&config.cache_config, node_memory_mb)),
             get_cache_count: 0,
             hit_cache_count: 0,
         }
@@ -289,8 +290,9 @@ impl Node {
         let con_mem_take = fncon.mem_take(env);
         self.fn_containers.borrow_mut().insert(fnid, fncon);
 
-        // 如果是 L2 快照命中，调整冷启动帧数
-        if load_detail.result == LoadResult::L2Hit {
+        // 如果是 L2/L3 缓存命中，根据缓存的冷启动时间调整容器启动帧数
+        // L3 命中（结果缓存）：effective_cold_start_time=0，本帧立即完成
+        if load_detail.result != LoadResult::Miss {
             if let Some(mut fc) = self.container_mut(fnid) {
                 use crate::fn_dag::FnContainerState;
                 if let FnContainerState::Starting { ref mut left_frame } = fc.state_mut() {
@@ -350,8 +352,9 @@ impl Node {
         let con_mem_take = fncon.mem_take(env);
         self.fn_containers.borrow_mut().insert(fnid, fncon);
 
-        // 如果是 L2 快照命中，调整冷启动帧数
-        if load_detail.result == LoadResult::L2Hit {
+        // 如果是 L2/L3 缓存命中，根据缓存的冷启动时间调整容器启动帧数
+        // L3 命中（结果缓存）：effective_cold_start_time=0，本帧立即完成
+        if load_detail.result != LoadResult::Miss {
             if let Some(mut fc) = self.container_mut(fnid) {
                 use crate::fn_dag::FnContainerState;
                 if let FnContainerState::Starting { ref mut left_frame } = fc.state_mut() {

@@ -1,13 +1,12 @@
 use core::cmp::Ordering;
 use std::cell::RefMut;
 use std::collections::{HashMap, VecDeque};
-use std::fmt::Display;
 use std::{cell::RefCell, cmp::Eq, fmt::Debug, hash::Hash, rc::Rc};
 
 use rand::Rng;
 
 use super::InstanceCachePolicy;
-use crate::fn_dag::{EnvFnExt, FnContainer};
+use crate::fn_dag::FnContainer;
 use crate::sim_env::SimEnv;
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +146,7 @@ impl<Payload> TempListNode<Payload> {
         cold_start_time: usize,
         cold_start_cpu_use: f32,
         cold_start_mem_use: f32,
-        env: &SimEnv,
+        _env: &SimEnv,
     ) -> f64 {
         let cs_cpu_use = cold_start_cpu_use as f64;
         let cs_mem_use = cold_start_mem_use as f64;
@@ -334,7 +333,7 @@ impl<Payload: Eq + Hash + Clone + Debug> HistoryList<Payload> {
     //env_temperature：环境温度
     //cooling_constant:冷却常数
     //insulation_time:保温时间(帧数)
-    pub fn calculate_his_attenuation(&self, current_frame: u32, cold_start_time: f64) -> f64 {
+    pub fn calculate_his_attenuation(&self, current_frame: u32, _cold_start_time: f64) -> f64 {
         let cooling_constant = self.conf.cooling_constant; //冷却常数。表示每单位时间温度下降 8%
         let insulation_time = self.conf.insulation_time; //保温时间。若为第一次调用则温度立即衰减
         let env_temperature = self.conf.env_temperature; //环境温度设置为 0
@@ -378,7 +377,7 @@ impl<Payload: Eq + Hash + Clone + Debug> HistoryManager<Payload> {
         &mut self,
         conid: Payload,
         current_frame: u32,
-        env: &SimEnv,
+        _env: &SimEnv,
         cold_start_time: usize,
         cold_start_cpu_use: f32,
         cold_start_mem_use: f32,
@@ -414,15 +413,15 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for Contem
     fn get(
         &mut self,
         key: Payload,
-        fncon: &RefMut<'_, FnContainer>,
-        env: &SimEnv,
+        _fncon: &RefMut<'_, FnContainer>,
+        _env: &SimEnv,
     ) -> Option<Payload> {
         // let current_frame = env.current_frame() as u32;
         // let cs_cpu_use = env.func(fncon.fn_id.clone()).cold_start_container_cpu_use;
         // let cs_mem_use = env.func(fncon.fn_id.clone()).cold_start_container_mem_use;
         // let cold_start_time = env.func(fncon.fn_id.clone()).cold_start_time;
 
-        if let Some(node) = self.cache.get(&key) {
+        if let Some(_node) = self.cache.get(&key) {
             // node.borrow_mut().record_call(
             //     current_frame,
             //     cold_start_time,
@@ -490,10 +489,10 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for Contem
             let temp_candidates: Vec<(f64, Payload)> = self
                 .get_sorted_temperatures(current_frame)
                 .into_iter()
-                .filter(|(temp, conid)| *temp <= key_temp)
+                .filter(|(temp, _conid)| *temp <= key_temp)
                 .collect();
 
-            for (temp, conid) in temp_candidates {
+            for (_temp, conid) in temp_candidates {
                 if can_be_evict(&conid) {
                     self.list_remove_all(&conid);
                     self.add_all(
@@ -529,9 +528,9 @@ impl<Payload: Eq + Hash + Clone + Debug> InstanceCachePolicy<Payload> for Contem
         false
     }
 
-    fn check_if_prefetch(&mut self, current_frame: u32, env: &SimEnv) -> Vec<Payload> {
-        let Vec = Vec::new();
-        Vec
+    fn check_if_prefetch(&mut self, _current_frame: u32, _env: &SimEnv) -> Vec<Payload> {
+        let v = Vec::new();
+        v
     }
 }
 
@@ -647,8 +646,8 @@ impl<Payload: Eq + Hash + Clone + Debug> ContempCache<Payload> {
     pub fn get_min_temperature(
         &self,
         current_frame: u32,
-        env: &SimEnv,
-        cold_start_time: usize,
+        _env: &SimEnv,
+        _cold_start_time: usize,
     ) -> f64 {
         // let now = Instant::now();
         self.cache

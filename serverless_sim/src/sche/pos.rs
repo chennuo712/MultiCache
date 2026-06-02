@@ -1,9 +1,7 @@
-use rand::seq::SliceRandom;
 use rand::{ thread_rng, Rng };
 
 use crate::fn_dag::EnvFnExt;
 use crate::mechanism_thread::{ MechCmdDistributor, MechScheduleOnceRes };
-use crate::node::EnvNodeExt;
 use crate::request::ReqId;
 use crate::util;
 use crate::with_env_sub::{ WithEnvCore, WithEnvHelp };
@@ -12,10 +10,10 @@ use crate::{
     mechanism::{ MechanismImpl, ScheCmd, SimEnvObserve },
     node::NodeId,
     request::Request,
-    sim_run::{ schedule_helper, Scheduler },
+    sim_run::Scheduler,
 };
 use std::cell::RefCell;
-use std::collections::{ HashMap, HashSet, VecDeque };
+use std::collections::{ HashMap, HashSet };
 
 enum PosMode {
     Greedy,
@@ -157,7 +155,7 @@ impl PosScheduler {
             );
 
             // 选择节点算法，首先选出包含当前函数容器的节点
-            let mut nodes2select = self.new_scale_up_nodes(fnid);
+            let nodes2select = self.new_scale_up_nodes(fnid);
 
             // random
             let best_node = match &self.mode {

@@ -1,5 +1,22 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use crate::fn_dag::FnId;
+
+/// 缓存层级
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CacheLevel {
+    /// L1 容器缓存（实例缓存）
+    Container,
+    /// L2 快照缓存
+    Snapshot,
+    /// L3 结果/数据缓存
+    Data,
+}
+
+impl CacheLevel {
+    pub fn all() -> Vec<CacheLevel> {
+        vec![CacheLevel::Container, CacheLevel::Snapshot, CacheLevel::Data]
+    }
+}
 
 /// 函数的版本状态
 #[derive(Debug, Clone)]
@@ -46,11 +63,34 @@ impl VersionState {
     }
 
     /// 递增主版本（函数镜像变更）
+    /// 主版本变更会影响所有缓存层级
     pub fn bump_major(&mut self, current_frame: usize) {
         self.major += 1;
         self.minor = 0;
         self.current_version = Self::compose_version(self.major, self.minor);
         self.last_updated_frame = current_frame;
+    }
+
+    /// 获取对指定缓存层级来说有效的版本号
+    /// Container 和 Snapshot 只看主版本兼容性
+    /// Data 层要求完全匹配
+    pub fn effective_version_for_level(&self, level: CacheLevel) -> u64 {
+        match level {
+            CacheLevel::Container | CacheLevel::Snapshot => {
+                // Container/Snapshot: 主版本兼容即可，有效版本为主版本
+                // 实际上容器版本就是 current_version
+                self.current_version
+            }
+            CacheLevel::Data => {
+                // Data 层要求完全匹配
+                self.current_version
+            }
+        }
+    }
+
+    /// 检查主版本是否一致
+    pub fn is_major_equal(&self, other_version: u64) -> bool {
+        Self::major_of(self.current_version) == Self::major_of(other_version)
     }
 
     /// 递增次版本（配置更新）
@@ -192,6 +232,58 @@ impl VersionManager {
         self.get_version(fn_id) == expected_version
     }
 
+    /// 级联失效：根据版本变更类型返回需要失效的缓存层级
+    ///
+    /// Algorithm 4-1:
+    /// - Major 主版本变更：所有层级（Container/Snapshot/Data）均失效
+    /// - Minor 次版本变更：仅 Data 层失效（Container/Snapshot 主版本兼容时可保留）
+    pub fn cascade_invalidate(
+        &self,
+        fn_id: FnId,
+        change_type: VersionChangeType,
+    ) -> Vec<CacheLevel> {
+        let Some(state) = self.versions.get(&fn_id) else {
+            return Vec::new();
+        };
+
+        match change_type {
+            VersionChangeType::Major => {
+                // 主版本变更：级联所有层级
+                log::info!(
+                    "级联失效[Major] fn={} ver={} 所有层级",
+                    fn_id,
+                    state.current_version
+                );
+                CacheLevel::all()
+            }
+            VersionChangeType::Minor => {
+                // 次版本变更：仅 Data 层失效
+                // Container 和 Snapshot 的主版本兼容，可以保留
+                log::info!(
+                    "级联失效[Minor] fn={} ver={} 仅 Data 层",
+                    fn_id,
+                    state.current_version
+                );
+                vec![CacheLevel::Data]
+            }
+        }
+    }
+
+    /// 级联失效（可变版本，批量接口）
+    pub fn cascade_invalidate_batch(
+        &self,
+        changes: &[VersionChange],
+    ) -> Vec<(CacheLevel, FnId)> {
+        let mut result = Vec::new();
+        for change in changes {
+            let levels = self.cascade_invalidate(change.fn_id, change.change_type);
+            for level in levels {
+                result.push((level, change.fn_id));
+            }
+        }
+        result
+    }
+
     /// 模拟帧结束时的版本更新（按 update_interval 随机触发版本变更）
     pub fn maybe_update_versions(
         &mut self,
@@ -229,6 +321,31 @@ impl VersionManager {
         }
 
         changes
+    }
+
+    /// 检查某个缓存层级的条目是否需要失效
+    /// version_validity: 0=无效(需要失效), 1=有效
+    pub fn check_cache_version(
+        &self,
+        fn_id: FnId,
+        level: CacheLevel,
+        entry_version: u64,
+    ) -> bool {
+        let Some(state) = self.versions.get(&fn_id) else {
+            // 没有版本信息，认为有效
+            return true;
+        };
+
+        match level {
+            CacheLevel::Container | CacheLevel::Snapshot => {
+                // Container/Snapshot: 主版本一致即有效
+                state.is_major_equal(entry_version)
+            }
+            CacheLevel::Data => {
+                // Data: 必须完全匹配
+                state.current_version == entry_version
+            }
+        }
     }
 
     /// 获取变更历史

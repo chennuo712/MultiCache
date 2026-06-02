@@ -1,4 +1,3 @@
-use crate::cache;
 use crate::fn_dag::EnvFnExt;
 use crate::node::EnvNodeExt;
 use crate::request::ReqId;
@@ -289,7 +288,7 @@ const FRAME_IDX_CONSISTENCY_OVERHEAD: usize = 23; // 一致性机制带来的额
 const FRAME_LEN: usize = 24;
 
 impl Recorder {
-    pub fn new(mut key: String) -> Self {
+    pub fn new(key: String) -> Self {
         // let args = parse_arg::get_arg();
         // key = key.replace(":", "_");
         // key = key.replace(",", ".");
@@ -434,7 +433,7 @@ impl Recorder {
         // self.frames.push(frame);
     }
 
-    pub fn flush(&self, env: &SimEnv) {
+    pub fn flush(&self, _env: &SimEnv) {
         // seek back 2 bytes ",\n"
         let flen = self.file.borrow_mut().metadata().unwrap().len();
         if flen < 100 {

@@ -182,6 +182,9 @@ class PackedRecord:
     undone_req_cnt=0.0
     req_done_time_avg_99p=0.0       # P99 尾延迟
     l1_cache_hit_ratio=0.0          # L1 容器缓存命中率
+    l2_cache_hit_ratio=0.0          # L2 快照缓存命中率
+    l3_cache_hit_ratio=0.0          # L3 数据缓存命中率
+    overall_cache_hit_ratio=0.0     # 三级缓存整体命中率
     consistency_error_rate=0.0      # 一致性错误率
     max_inconsistency_window=0.0    # 最大不一致窗口
     consistency_overhead=0.0        # 一致性机制延迟开销
@@ -253,6 +256,12 @@ class Frame:
         return self.frame[self.idxs['FRAME_IDX_REQ_DONE_TIME_AVG_99P']]
     def l1_cache_hit_ratio(self):
         return self.frame[self.idxs['FRAME_IDX_L1_HIT_RATIO']]
+    def l2_cache_hit_ratio(self):
+        return self.frame[self.idxs['FRAME_IDX_L2_HIT_RATIO']]
+    def l3_cache_hit_ratio(self):
+        return self.frame[self.idxs['FRAME_IDX_L3_HIT_RATIO']]
+    def overall_cache_hit_ratio(self):
+        return self.frame[self.idxs['FRAME_IDX_OVERALL_HIT_RATIO']]
     def consistency_error_rate(self):
         return self.frame[self.idxs['FRAME_IDX_CONSISTENCY_ERROR_RATE']]
     def max_inconsistency_window(self):
@@ -288,6 +297,9 @@ def load_record_from_file(filename):
         record.undone_req_cnt = cacherecord['undone_req_cnt']
         record.req_done_time_avg_99p = cacherecord.get('req_done_time_avg_99p', 0.0)
         record.l1_cache_hit_ratio = cacherecord.get('l1_cache_hit_ratio', 0.0)
+        record.l2_cache_hit_ratio = cacherecord.get('l2_cache_hit_ratio', 0.0)
+        record.l3_cache_hit_ratio = cacherecord.get('l3_cache_hit_ratio', 0.0)
+        record.overall_cache_hit_ratio = cacherecord.get('overall_cache_hit_ratio', 0.0)
         record.consistency_error_rate = cacherecord.get('consistency_error_rate', 0.0)
         record.max_inconsistency_window = cacherecord.get('max_inconsistency_window', 0.0)
         record.consistency_overhead = cacherecord.get('consistency_overhead', 0.0)
@@ -322,6 +334,9 @@ def load_record_from_file(filename):
             record.undone_req_cnt = len(frame.running_reqs())
             record.req_done_time_avg_99p = frame.req_done_time_avg_99p()
             record.l1_cache_hit_ratio = frame.l1_cache_hit_ratio()
+            record.l2_cache_hit_ratio = frame.l2_cache_hit_ratio()
+            record.l3_cache_hit_ratio = frame.l3_cache_hit_ratio()
+            record.overall_cache_hit_ratio = frame.overall_cache_hit_ratio()
             record.consistency_error_rate = frame.consistency_error_rate()
             record.max_inconsistency_window = frame.max_inconsistency_window()
             record.consistency_overhead = frame.consistency_overhead()
@@ -341,6 +356,9 @@ def load_record_from_file(filename):
                     'undone_req_cnt': record.undone_req_cnt,
                     'req_done_time_avg_99p': record.req_done_time_avg_99p,
                     'l1_cache_hit_ratio': record.l1_cache_hit_ratio,
+                    'l2_cache_hit_ratio': record.l2_cache_hit_ratio,
+                    'l3_cache_hit_ratio': record.l3_cache_hit_ratio,
+                    'overall_cache_hit_ratio': record.overall_cache_hit_ratio,
                     'consistency_error_rate': record.consistency_error_rate,
                     'max_inconsistency_window': record.max_inconsistency_window,
                     'consistency_overhead': record.consistency_overhead
@@ -383,6 +401,9 @@ def avg_records(records):
     undone_req_cnt=0.0
     req_done_time_avg_99p=0.0
     l1_cache_hit_ratio=0.0
+    l2_cache_hit_ratio=0.0
+    l3_cache_hit_ratio=0.0
+    overall_cache_hit_ratio=0.0
     consistency_error_rate=0.0
     max_inconsistency_window=0.0
     consistency_overhead=0.0
@@ -400,6 +421,9 @@ def avg_records(records):
         undone_req_cnt+=record.undone_req_cnt
         req_done_time_avg_99p+=record.req_done_time_avg_99p
         l1_cache_hit_ratio+=record.l1_cache_hit_ratio
+        l2_cache_hit_ratio+=record.l2_cache_hit_ratio
+        l3_cache_hit_ratio+=record.l3_cache_hit_ratio
+        overall_cache_hit_ratio+=record.overall_cache_hit_ratio
         consistency_error_rate+=record.consistency_error_rate
         max_inconsistency_window+=record.max_inconsistency_window
         consistency_overhead+=record.consistency_overhead
@@ -416,6 +440,9 @@ def avg_records(records):
     undone_req_cnt/=len(records)
     req_done_time_avg_99p/=len(records)
     l1_cache_hit_ratio/=len(records)
+    l2_cache_hit_ratio/=len(records)
+    l3_cache_hit_ratio/=len(records)
+    overall_cache_hit_ratio/=len(records)
     consistency_error_rate/=len(records)
     max_inconsistency_window/=len(records)
     consistency_overhead/=len(records)
@@ -434,6 +461,9 @@ def avg_records(records):
     records[0].undone_req_cnt=undone_req_cnt
     records[0].req_done_time_avg_99p=req_done_time_avg_99p
     records[0].l1_cache_hit_ratio=l1_cache_hit_ratio
+    records[0].l2_cache_hit_ratio=l2_cache_hit_ratio
+    records[0].l3_cache_hit_ratio=l3_cache_hit_ratio
+    records[0].overall_cache_hit_ratio=overall_cache_hit_ratio
     records[0].consistency_error_rate=consistency_error_rate
     records[0].max_inconsistency_window=max_inconsistency_window
     records[0].consistency_overhead=consistency_overhead

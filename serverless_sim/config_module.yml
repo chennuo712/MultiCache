@@ -15,11 +15,15 @@ mechanism:
     pos:
 
 # 多级缓存配置（可选）
+# 基于内存大小的缓存容量配置
 cache_config:
-  l1_ratio: 0.60          # L1容器缓存比例（默认0.60）
-  l2_ratio: 0.30          # L2快照缓存比例（默认0.30）
-  l3_ratio: 0.10          # L3数据缓存比例（默认0.10）
-  l1_capacity: 100        # L1缓存容量（条目数）
+  cache_memory_ratio: 0.30       # 缓存占节点总内存的比例（默认0.30）
+  l1_ratio: 0.60                 # L1容器缓存比例（默认0.60）
+  l2_ratio: 0.30                 # L2快照缓存比例（默认0.30）
+  l3_ratio: 0.10                 # L3结果缓存比例（默认0.10）
+  container_mem_range_mb: [100, 500]  # 函数容器内存大小范围 MB
+  snapshot_ratio: 0.60           # 快照大小为容器大小的比例
+  result_data_range_mb: [10, 50] # 函数执行结果数据大小范围 MB
 
 # 一致性控制配置（可选）
 consistency:

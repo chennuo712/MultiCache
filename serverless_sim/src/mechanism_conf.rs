@@ -1,4 +1,3 @@
-use axum::extract::Host;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -9,9 +8,8 @@ use crate::{
         FILTER_NAMES, INSTANCE_LIVE_NAMES, MECH_NAMES, SCALE_DOWN_EXEC_NAMES, SCALE_NUM_NAMES,
         SCALE_UP_EXEC_NAMES, SCHE_NAMES,
     },
-    sim_env::SimEnv,
 };
-use std::{collections::HashMap, fs::File, ptr::NonNull};
+use std::{collections::HashMap, fs::File};
 
 pub struct ModuleMechConf(pub MechConfig);
 
@@ -291,22 +289,17 @@ impl MechConfig {
     /// 创建多级缓存实例
     ///
     /// 使用 instance_cache_policy 配置创建 L1 子策略，
-    /// 并使用 cache_config 配置 L2/L3 容量比例。
+    /// 并根据节点内存和 cache_config 自动计算各级缓存容量。
     pub fn new_multi_level_cache(
         &self,
         cache_config: &Option<CacheConfig>,
+        node_memory_mb: f32,
     ) -> crate::cache::MultiLevelCache {
-        use crate::cache::{CapacityConfig, MultiLevelCache, ValueScorerConfig};
+        use crate::cache::{MultiLevelCache, ValueScorerConfig};
 
         let l1_policy = self.new_instance_cache_policy();
         let cfg = cache_config.clone().unwrap_or(CacheConfig::default());
-        let capacity_cfg = CapacityConfig {
-            l1_ratio: cfg.l1_ratio,
-            l2_ratio: cfg.l2_ratio,
-            l3_ratio: cfg.l3_ratio,
-            demote_threshold_ratio: 0.3,
-        };
-        MultiLevelCache::new(l1_policy, cfg.l1_capacity, capacity_cfg, ValueScorerConfig::default())
+        MultiLevelCache::new(l1_policy, node_memory_mb, &cfg, ValueScorerConfig::default())
     }
 
     pub fn instance_cache_policy_conf(&self) -> (String, String) {

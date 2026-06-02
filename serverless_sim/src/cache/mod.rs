@@ -1,22 +1,22 @@
 // pub mod arc;
 pub mod contemp;
-pub mod data_cache;
+// pub mod data_cache;
 pub mod dualqueue;
 pub mod faascache;
 pub mod fifo;
-pub mod level_cache;
+// pub mod level_cache;
 pub mod lru;
 pub mod multi_level;
 pub mod no_evict;
 pub mod scache;
-pub mod snapshot_cache;
+// pub mod snapshot_cache;
 pub mod ttl;
 pub mod types;
 pub mod value_scorer;
 
-pub use multi_level::{CapacityConfig, MultiLevelCache, MultiLevelCacheStats};
-pub use types::{CacheLevel, CacheObject, DataEntry, LoadDetail, LoadResult, SnapshotEntry};
-pub use value_scorer::{ValueScorer, ValueScorerConfig};
+pub use multi_level::MultiLevelCache;
+pub use types::LoadResult;
+pub use value_scorer::ValueScorerConfig;
 // pub mod no_attenuation;
 // pub mod no_callcount;
 // pub mod no_cpu;
